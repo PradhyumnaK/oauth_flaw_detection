@@ -1,24 +1,31 @@
 from flask import Flask
-from flask import flash, redirect, render_template, request, session, abort
+from flask import flash, redirect, render_template, request, url_for, session, abort
 import os
 
 app=Flask(__name__)
-
-@app.route('/')
+app.secret_key=os.urandom(24)
+@app.route("/")
 def home():
-    if not session.get('logged_in'):
-        return render_template('login.html')
+    if not session.get("logged_in"):
+        return render_template("login.html")
     else:
-        return "Hello There"
+        return "Hello There <a href='/logout'>Logout</a>"
 
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def admin_login():
-    if request.form['password'] == 'password' and request.form['username'] == 'admin':
-        session['logged_in'] == True
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if username == "admin" and password == "password":
+        session["logged_in"] = True
     else:
-        flash("Wrong password!")
-    return home()
+        flash("Invalid username or password!")
+    return redirect(url_for("home"))
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
 
 if __name__ == "__main__":
-    app.secret_key=os.urandom(12)
     app.run(debug=True, host='0.0.0.0', port=4000)
