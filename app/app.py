@@ -1,14 +1,15 @@
 from flask import Flask
 from flask import flash, redirect, render_template, request, url_for, session, abort
 from authlib.integrations.flask_client import OAuth
+from authlib.common.security import generate_token
 import os
 
 app=Flask(__name__)
 app.secret_key=os.urandom(24)
 
 #Keycloak configuration
-KEYCLOAK_ISSUER = "http://localhost:8080/admin/master/console/#/master/realms"
-CLIENT_ID = 1
+KEYCLOAK_ISSUER = "http://localhost:8080/realms/master"
+CLIENT_ID = "testing"
 REDIRECT_URI = "http://localhost:4000/callback"
 
 oauth = OAuth(app)
@@ -17,7 +18,6 @@ keycloak = oauth.register(
     'keycloak',
     client_id = CLIENT_ID,
     server_metadata_url = f'{KEYCLOAK_ISSUER}/.well-known/openid-configuration',
-    client_kwargs = {'scope': 'openid profile email'}
 )
 
 @app.route("/")
@@ -30,13 +30,17 @@ def home():
 @app.route("/login")
 def login():
     redirect_uri = url_for('callback', _external=True)
-    return keycloak.authorize_redirect(redirect_uri)
+    nonce=generate_token()
+    session['nonce'] = nonce
+    return keycloak.authorize_redirect(redirect_uri, nonce=nonce)
 
 @app.route("/callback")
 def callback():
     token = keycloak.authorize_access_token()
-    user = keycloak.parse_id_token(token)
+    nonce = session.pop('nonce', None)
+    user = keycloak.parse_id_token(token, nonce=nonce)
     session['user'] = user
+    session['logged_in'] = True
     return redirect(url_for('home'))
 
 @app.route("/logout")
