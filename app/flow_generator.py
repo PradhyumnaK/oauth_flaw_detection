@@ -3,8 +3,13 @@ import hashlib
 import json
 import os
 import secrets
-from urllib.parse import urlencode
 import requests
+import html
+import re
+from urllib.parse import urlencode, urlparse, parse_qs
+
+USERNAME = "test"
+PASSWORD = "test"
 
 REALM="master"
 KEYCLOAK_BASE="http://localhost:8080"
@@ -21,6 +26,22 @@ def pkce_pair():
     challenge=b64url_no_padding(digest)
     return verifier,challenge
 
+def get_login_action_url(html_text: str) -> str:
+    """Extract Keycloak login form action URL from HTML."""
+    m = re.search(r'action="([^"]+)"', html_text)
+    if not m:
+        raise RuntimeError("Could not find login form action in Keycloak HTML")
+    return html.unescape(m.group(1))
+
+def extract_code_from_location(location: str) -> str:
+    """Extract code from redirect URL."""
+    parsed = urlparse(location)
+    qs = parse_qs(parsed.query)
+    code = qs.get("code", [None])[0]
+    if not code:
+        raise RuntimeError(f"No 'code' parameter in redirect: {location}")
+    return code
+
 def build_normal_auth_request():
     """
     Perform: discovery, PKCE, auth URL, trace.
@@ -35,6 +56,7 @@ def build_normal_auth_request():
     meta=resp.json()
 
     auth_endpoint = meta["authorization_endpoint"]
+    token_endpoint = meta["token_endpoint"]
 
     #Generate PKCE and state/none
     code_verifier, code_challenge = pkce_pair()
@@ -43,7 +65,7 @@ def build_normal_auth_request():
 
     #Build authorization URL
     auth_params={
-        "response type":"code",
+        "response_type":"code",
         "client_id":CLIENT_ID,
         "redirect_uri":REDIRECT_URI,
         "scope":"openid",
@@ -54,27 +76,113 @@ def build_normal_auth_request():
     }
     auth_url=f"{auth_endpoint}?{urlencode(auth_params)}"
 
-    trace={
-        "scenario":"normal",
-        "stage":"authorization_url_built",
-        "authorization_endpoint":auth_endpoint,
-        "auth_params":auth_params,
-        "code_verifier":"stored_in_memory", #would be kept by generator
+    return auth_endpoint, token_endpoint, auth_params, code_verifier
+
+def run_normal_flow(run: int=1) -> dict:
+    """Automated normal authorization code and PKCE flow: 
+    authorization request, login, code reception, token exchange
+    Writes traces/normal_<run>.json and returns trace dict."""
+    os.makedirs(TRACES_DIR, exist_ok=True)
+    session = requests.Session()
+
+    auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
+
+    trace = {
+        "scenario": "normal",
+        "run": run,
+        "steps": [],
+        "outcome": {},
     }
-    return auth_endpoint, auth_url, auth_params, code_verifier, trace
+
+    #Step 1: authorization request (client -> AS)
+    auth_resp = session.get(auth_endpoint, params=auth_params, allow_redirects=False)
+    trace["steps"].append({
+        "step": "authorization_request",
+        "status": auth_resp.status_code,
+        "location": auth_resp.headers.get("Location"),
+    })
+
+    if auth_resp.status_code not in (200, 302):
+        trace["outcome"] = {
+            "result": "auth_request_failed",
+            "status": auth_resp.status_code,
+        }
+        return save_trace(trace_run)
+    
+    login_url = auth_resp.headers.get("Location") or auth_resp.url
+
+    #Step 2: GET login page (browser -> AS)
+    login_page = session.get(login_url, allow_redirects=False)
+    login_action = get_login_action_url(login_page.text)
+    cookie = login_page.headers.get("Set-Cookie", "")
+
+    #Step 3: Submit credentials (user confirms request)
+    login_resp = session.post(
+        login_action,
+        data={"username": USERNAME, "password": PASSWORD},
+        headers={"Cookie": cookie},
+        allow_redirects=False,
+    )
+    redirect_back = login_resp.headers.get("Location", "")
+    trace["steps"].append({
+        "step": "login_submit",
+        "status": login_resp.status_code,
+        "location": redirect_back,
+    })
+
+    if not redirect_back:
+        trace["outcome"] = {
+            "result": "login_failed_no_redirect",
+            "status": login_resp.status_code,  
+        }
+        return save_trace(trace, run)
+    
+    #Step 4: AS generates code and redirects to client (3 returns code)
+    try:
+        code = extract_code_from_location(redirect_back)
+    except RuntimeError as e:
+        trace["outcome"] = {"result": "no_code_in_redirect", "details": str(e)}
+        return save_trace(trace, run)
+    
+    trace["steps"].append({
+        "step": "code_received",
+        "redirect_to": redirect_back,
+        "code_present": True,
+    })
+
+    #Step 5: Client requests token (4 tokens token)
+    token_data = {
+        "grant_type": "authorization_code",
+        "client_id": CLIENT_ID,
+        "code": code,
+        "redirect_uri": REDIRECT_URI,
+        "code_verifier": code_verifier,
+    }
+    token_resp = session.post(token_endpoint, data=token_data, allow_redirects=False)
+    step_token = {
+        "step": "token_exchange",
+        "status": token_resp.status_code,
+        "body": token_resp.text[:2000],
+    }
+    trace["steps"].append(step_token)
+
+    if token_resp.status_code == 200:
+        trace["outcome"] = {"result": "success", "status": 200}
+    else:
+        trace["outcome"] = {"result": "token_error", "status": token_resp.status_code}
+
+    return save_trace(trace, run)   
+
+def save_trace(trace: dict, run: int) -> dict:
+    out_file = os.path.join(TRACES_DIR, f"normal_{run}.json")
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(trace, f, indent=2)
+    print(f"[run {run}] Trace saved to {out_file}")
+    return trace
 
 def main():
-    auth_endpoint, auth_url, auth_params, code_verifier, trace = build_normal_auth_request()
-
-    print("\nAuthorization URL for normal flow:")
-    print(auth_url)
-
-    #Save as first trace
-    out_file=os.path.join(TRACES_DIR, "normal_auth_request.json")
-    with open(out_file,"w",encoding="utf-8") as f:
-        json.dump(trace,f,indent=2)
-    
-    print(f"\nTrace saved to {out_file}\n")
+    #Run the normal flow
+    run_normal_flow(run=1)
 
 
 if __name__=="__main__":
