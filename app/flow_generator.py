@@ -98,16 +98,27 @@ def run_normal_flow(run: int=1) -> dict:
     auth_resp = session.get(auth_endpoint, params=auth_params, allow_redirects=False)
     trace["steps"].append({
         "step": "authorization_request",
-        "status": auth_resp.status_code,
-        "location": auth_resp.headers.get("Location"),
+        "request": {
+            "method": "GET",
+            "url": auth_endpoint,
+            "params": auth_params,  
+        },
+        "response": {
+            "status": auth_resp.status_code,
+            "headers": dict(auth_resp.headers),
+            "location": auth_resp.headers.get("Location"),
+            "body_snippet": auth_resp.text[:500],
+        },
     })
 
     if auth_resp.status_code not in (200, 302):
         trace["outcome"] = {
             "result": "auth_request_failed",
             "status": auth_resp.status_code,
+            "issue": "authorization_endpoint_rejected_request",
+            "reason": "Authorization endpoint did not return 200/302 for normal flow",
         }
-        return save_trace(trace_run)
+        return save_trace(trace, run)
     
     login_url = auth_resp.headers.get("Location") or auth_resp.url
 
@@ -115,6 +126,21 @@ def run_normal_flow(run: int=1) -> dict:
     login_page = session.get(login_url, allow_redirects=False)
     login_action = get_login_action_url(login_page.text)
     cookie = login_page.headers.get("Set-Cookie", "")
+    
+    #Log login page as its own step with headers and a snippet of HTML
+    trace["steps"].append({
+        "step": "login_page",
+        "request": {
+            "method": "GET",
+            "url": login_url,
+        },
+        "response": {
+            "status": login_page.status_code,
+            "headers": dict(login_page.headers),
+            "body_snippet": login_page.text[:500],
+            "login_form_action": login_action,
+        },
+    })
 
     #Step 3: Submit credentials (user confirms request)
     login_resp = session.post(
@@ -124,16 +150,28 @@ def run_normal_flow(run: int=1) -> dict:
         allow_redirects=False,
     )
     redirect_back = login_resp.headers.get("Location", "")
+
     trace["steps"].append({
         "step": "login_submit",
-        "status": login_resp.status_code,
-        "location": redirect_back,
+        "request": {
+            "method": "POST",
+            "url": login_action,
+            "data": {"username": USERNAME, "password": "***"},
+        },
+        "response": {
+            "status": login_resp.status_code,
+            "headers": dict(login_resp.headers),
+            "location": redirect_back,
+            "body_snippet": login_resp.text[:500],
+        },
     })
 
     if not redirect_back:
         trace["outcome"] = {
             "result": "login_failed_no_redirect",
             "status": login_resp.status_code,  
+            "issue": "no_redirect_after_login",
+            "reason": "Login POST did not include Location header back to redirect_uri",
         }
         return save_trace(trace, run)
     
@@ -159,17 +197,40 @@ def run_normal_flow(run: int=1) -> dict:
         "code_verifier": code_verifier,
     }
     token_resp = session.post(token_endpoint, data=token_data, allow_redirects=False)
-    step_token = {
+    
+    #Omit code and code_verifier for safety
+    trace["steps"].append({
         "step": "token_exchange",
-        "status": token_resp.status_code,
-        "body": token_resp.text[:2000],
-    }
-    trace["steps"].append(step_token)
+        "request": {
+            "method": "POST",
+            "url": token_endpoint,
+            "data": {
+                "grant_type": "authorization_code",
+                "client_id": CLIENT_ID,
+                "redirect_uri": REDIRECT_URI,
+            },
+        },
+        "response": {
+            "status": token_resp.status_code,
+            "headers": dict(token_resp.headers),
+            "body_snippet": token_resp.text[:500],
+        },
+    })
 
     if token_resp.status_code == 200:
-        trace["outcome"] = {"result": "success", "status": 200}
+        trace["outcome"] = {
+            "result": "success", 
+            "status": 200,
+            "issue": None,
+            "reason": "Tokens successfully issued for normal PKCE flow",
+        }
     else:
-        trace["outcome"] = {"result": "token_error", "status": token_resp.status_code}
+        trace["outcome"] = {
+            "result": "token_error", 
+            "status": token_resp.status_code,
+            "issue": "token_endpoint_error",
+            "reason": "Token endpoint did not return 200 for authorization_code request",
+        }
 
     return save_trace(trace, run)   
 
