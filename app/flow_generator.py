@@ -6,7 +6,22 @@ import secrets
 import requests
 import html
 import re
+import time
+import random
 from urllib.parse import urlencode, urlparse, parse_qs
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+    "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+]
+
+SCOPES = [
+    "openid",
+    "openid profile",
+    "openid email",
+    "openid profile email",
+]
 
 USERNAME = "test"
 PASSWORD = "test"
@@ -42,6 +57,17 @@ def extract_code_from_location(location: str) -> str:
         raise RuntimeError(f"No 'code' parameter in redirect: {location}")
     return code
 
+def timed_request(session: requests.Session, method: str, url: str, ** kwargs) -> dict:
+    """Send HTTP request via session and return a structured record with timing."""
+    t0 = time.time()
+    resp = session.request(method, url, allow_redirects=False, **kwargs)
+    t1 = time.time()
+    duration_in_ms = int((t1-t0)*1000)
+    return {
+        "response": resp,
+        "duration_in_ms": duration_in_ms,
+    }
+
 def build_normal_auth_request():
     """
     Perform: discovery, PKCE, auth URL, trace.
@@ -63,18 +89,21 @@ def build_normal_auth_request():
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(16)
 
+    #Scope variation
+    scope = random.choice(SCOPES)
+
     #Build authorization URL
     auth_params={
         "response_type":"code",
         "client_id":CLIENT_ID,
         "redirect_uri":REDIRECT_URI,
-        "scope":"openid",
+        "scope":scope,
         "state":state,
         "nonce":nonce,
         "code_challenge":code_challenge,
         "code_challenge_method":"S256",
     }
-    auth_url=f"{auth_endpoint}?{urlencode(auth_params)}"
+    #auth_url=f"{auth_endpoint}?{urlencode(auth_params)}"
 
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
@@ -85,23 +114,39 @@ def run_normal_flow(run: int=1) -> dict:
     os.makedirs(TRACES_DIR, exist_ok=True)
     session = requests.Session()
 
+    #Choose a random user agent for every flow from the defined user agents
+    user_agent = random.choice(USER_AGENTS)
+    default_headers = {"User-Agent": user_agent}
+
     auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
 
     trace = {
         "scenario": "normal",
         "run": run,
+        "chosen_scope": auth_params.get("scope"),
+        "user_agent": user_agent,
         "steps": [],
         "outcome": {},
     }
 
     #Step 1: authorization request (client -> AS)
-    auth_resp = session.get(auth_endpoint, params=auth_params, allow_redirects=False)
+    #auth_resp = session.get(auth_endpoint, params=auth_params, allow_redirects=False)
+    auth_rec = timed_request (
+        session,
+        "GET",
+        auth_endpoint,
+        params=auth_params,
+        headers=default_headers,
+    )
+    auth_resp = auth_rec["response"]
     trace["steps"].append({
         "step": "authorization_request",
+        "duration_in_ms": auth_rec["duration_in_ms"],
         "request": {
             "method": "GET",
             "url": auth_endpoint,
             "params": auth_params,  
+            "headers": default_headers, 
         },
         "response": {
             "status": auth_resp.status_code,
@@ -123,16 +168,25 @@ def run_normal_flow(run: int=1) -> dict:
     login_url = auth_resp.headers.get("Location") or auth_resp.url
 
     #Step 2: GET login page (browser -> AS)
-    login_page = session.get(login_url, allow_redirects=False)
+    #login_page = session.get(login_url, allow_redirects=False)
+    login_rec = timed_request(
+        session,
+        "GET",
+        login_url,
+        headers = default_headers,
+    )
+    login_page = login_rec["response"]
     login_action = get_login_action_url(login_page.text)
     cookie = login_page.headers.get("Set-Cookie", "")
     
     #Log login page as its own step with headers and a snippet of HTML
     trace["steps"].append({
         "step": "login_page",
+        "duration_in_ms": login_rec["duration_in_ms"],
         "request": {
             "method": "GET",
             "url": login_url,
+            "headers": default_headers,
         },
         "response": {
             "status": login_page.status_code,
@@ -143,20 +197,33 @@ def run_normal_flow(run: int=1) -> dict:
     })
 
     #Step 3: Submit credentials (user confirms request)
-    login_resp = session.post(
+    #login_resp = session.post(
+     #   login_action,
+      #  data={"username": USERNAME, "password": PASSWORD},
+       # headers={"Cookie": cookie},
+        #allow_redirects=False,
+    #)
+    login_headers = {
+        "Cookie": cookie,
+        "User-Agent": user_agent,
+    }
+    login_rec = timed_request(
+        session,
+        "POST",
         login_action,
         data={"username": USERNAME, "password": PASSWORD},
-        headers={"Cookie": cookie},
-        allow_redirects=False,
+        headers=login_headers,
     )
+    login_resp = login_rec["response"]
     redirect_back = login_resp.headers.get("Location", "")
-
     trace["steps"].append({
         "step": "login_submit",
+        "duration_in_ms": login_rec["duration_in_ms"],
         "request": {
             "method": "POST",
             "url": login_action,
             "data": {"username": USERNAME, "password": "***"},
+            "headers": login_headers,
         },
         "response": {
             "status": login_resp.status_code,
@@ -196,11 +263,21 @@ def run_normal_flow(run: int=1) -> dict:
         "redirect_uri": REDIRECT_URI,
         "code_verifier": code_verifier,
     }
-    token_resp = session.post(token_endpoint, data=token_data, allow_redirects=False)
-    
+    #token_resp = session.post(token_endpoint, data=token_data, allow_redirects=False)
+    token_rec = timed_request(
+        session, 
+        "POST",
+        token_endpoint,
+        data=token_data,
+        headers=default_headers,
+    )
+    token_resp = token_rec["response"]
+
+
     #Omit code and code_verifier for safety
     trace["steps"].append({
         "step": "token_exchange",
+        "duration_in_ms": token_rec["duration_in_ms"],
         "request": {
             "method": "POST",
             "url": token_endpoint,
@@ -209,6 +286,7 @@ def run_normal_flow(run: int=1) -> dict:
                 "client_id": CLIENT_ID,
                 "redirect_uri": REDIRECT_URI,
             },
+            "headers": default_headers,
         },
         "response": {
             "status": token_resp.status_code,
