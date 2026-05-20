@@ -8,6 +8,7 @@ import html
 import re
 import time
 import random
+from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
 
 USER_AGENTS = [
@@ -22,6 +23,8 @@ SCOPES = [
     "openid email",
     "openid profile email",
 ]
+TRACES_ROOT = Path("traces")
+TRACES_ROOT.mkdir(exist_ok=True)
 
 USERNAME = "test"
 PASSWORD = "test"
@@ -313,15 +316,22 @@ def run_normal_flow(run: int=1) -> dict:
     return save_trace(trace, run)   
 
 def save_trace(trace: dict, run: int) -> dict:
-    out_file = os.path.join(TRACES_DIR, f"normal_{run}.json")
+    scenario = trace.get("scenario", "unknown")
+    scenario_dir = TRACES_ROOT / scenario
+    scenario_dir.mkdir(parents=True, exist_ok=True)
+
+    #out_file = os.path.join(TRACES_DIR, f"normal_{run}.json")
+    out_file = scenario_dir / f"{scenario}_{run}.json"
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(trace, f, indent=2)
     print(f"[run {run}] Trace saved to {out_file}")
     return trace
 
 def main():
-    #Run the normal flow
-    run_normal_flow(run=1)
+    #Run the normal flow 125 times to create 125 randomized flow traces
+    for run in range(1,126):
+        print(f"Running normal flow: #{run}")
+        run_normal_flow(run=run)
 
 
 if __name__=="__main__":
