@@ -8,6 +8,7 @@ import html
 import re
 import time
 import random
+import http
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
 
@@ -63,7 +64,9 @@ def extract_code_from_location(location: str) -> str:
 def timed_request(session: requests.Session, method: str, url: str, ** kwargs) -> dict:
     """Send HTTP request via session and return a structured record with timing."""
     t0 = time.time()
-    resp = session.request(method, url, allow_redirects=False, **kwargs)
+    #Removing allow_redirects parameter in resp
+    #allow_redirects is passed via **kwargs so each call controls redirect behaviour explicitly
+    resp = session.request(method, url, **kwargs)
     t1 = time.time()
     duration_in_ms = int((t1-t0)*1000)
     return {
@@ -110,12 +113,29 @@ def build_normal_auth_request():
 
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
+class AllowSecureOnHTTP(http.cookiejar.DefaultCookiePolicy):
+    """Allow secure cookies to be stored and sent over plain HTTP.
+    This is needed because Keycloak secure flag even on localhost."""
+
+    def set_ok(self, cookie, request):
+        cookie.secure = False
+        return super().set_ok(cookie, request)
+    
+    def return_ok(self, cookie, request):
+        cookie.secure = False
+        return super().return_ok(cookie, request)
+    
+def make_session() -> requests.Session:
+    session = requests.Session()
+    session.cookies.set_policy(AllowSecureOnHTTP())
+    return session
+
 def run_normal_flow(run: int=1) -> dict:
     """Automated normal authorization code and PKCE flow: 
     authorization request, login, code reception, token exchange
-    Writes traces/normal_<run>.json and returns trace dict."""
+    Writes traces/normal/normal_<run>.json and returns trace dict."""
     os.makedirs(TRACES_DIR, exist_ok=True)
-    session = requests.Session()
+    session = make_session()
 
     #Choose a random user agent for every flow from the defined user agents
     user_agent = random.choice(USER_AGENTS)
@@ -133,33 +153,35 @@ def run_normal_flow(run: int=1) -> dict:
     }
 
     #Step 1: authorization request (client -> AS)
-    #auth_resp = session.get(auth_endpoint, params=auth_params, allow_redirects=False)
+    #allow_redirects is always set to False, so that we control each hop and the session
+    #cookie jar is updated one request at a time
     auth_rec = timed_request (
         session,
         "GET",
         auth_endpoint,
         params=auth_params,
         headers=default_headers,
+        allow_redirects=False,
     )
     auth_resp = auth_rec["response"]
-    trace["steps"].append({
-        "step": "authorization_request",
-        "duration_in_ms": auth_rec["duration_in_ms"],
-        "request": {
-            "method": "GET",
-            "url": auth_endpoint,
-            "params": auth_params,  
-            "headers": default_headers, 
-        },
-        "response": {
-            "status": auth_resp.status_code,
-            "headers": dict(auth_resp.headers),
-            "location": auth_resp.headers.get("Location"),
-            "body_snippet": auth_resp.text[:500],
-        },
-    })
+
+    
 
     if auth_resp.status_code not in (200, 302):
+        trace["steps"].append({
+            "step": "authorization_request",
+            "duration_in_ms": auth_rec["duration_in_ms"],
+            "request": {
+                "method": "GET",
+                "url": auth_endpoint,
+                "params": auth_params,  
+                "headers": default_headers, 
+            },
+            "response": {
+                "status": auth_resp.status_code,
+                "headers": dict(auth_resp.headers),
+            },
+        })
         trace["outcome"] = {
             "result": "auth_request_failed",
             "status": auth_resp.status_code,
@@ -168,46 +190,56 @@ def run_normal_flow(run: int=1) -> dict:
         }
         return save_trace(trace, run)
     
-    login_url = auth_resp.headers.get("Location") or auth_resp.url
+    #Keycloak returns 200 with the login form directly or 302 to the login page URL.
+    #We need to handle both explicitly
+    if auth_resp.status_code == 302:
+        login_page_url = auth_resp.headers.get("Location")
+        login_page_rec = timed_request(
+            session,
+            "GET",
+            login_page_url,
+            headers=default_headers,
+            allow_redirects=False,
+        )
+        login_page_resp = login_page_rec["response"]
+        form_html = login_page_resp.text
+        form_status = login_page_resp.status_code
+        form_headers = dict(login_page_resp.headers)
+        step1_duration = auth_rec["duration_in_ms"] + login_page_rec["duration_in_ms"]
 
-    #Step 2: GET login page (browser -> AS)
-    #login_page = session.get(login_url, allow_redirects=False)
-    login_rec = timed_request(
-        session,
-        "GET",
-        login_url,
-        headers = default_headers,
-    )
-    login_page = login_rec["response"]
-    login_action = get_login_action_url(login_page.text)
-    cookie = login_page.headers.get("Set-Cookie", "")
+    else:
+        #200 login form is in the body directly and second request is not needed
+        form_html = auth_resp.text
+        form_status = auth_resp.status_code
+        form_headers = dict(auth_resp.headers)
+        step1_duration = auth_rec["duration_in_ms"]
     
-    #Log login page as its own step with headers and a snippet of HTML
+    try:
+        login_action = get_login_action_url(form_html)
+    except RuntimeError as e:
+        trace["outcome"] = {"result": "no_login_form", "details": str(e)}
+        return save_trace(trace, run)
+    
     trace["steps"].append({
-        "step": "login_page",
-        "duration_in_ms": login_rec["duration_in_ms"],
+        "step": "authorization_request",
+        "duration_in_ms": step1_duration,
         "request": {
             "method": "GET",
-            "url": login_url,
+            "url": auth_endpoint,
+            "params": auth_params,
             "headers": default_headers,
         },
         "response": {
-            "status": login_page.status_code,
-            "headers": dict(login_page.headers),
-            "body_snippet": login_page.text[:500],
+            "status": form_status,
+            "headers": form_headers,
             "login_form_action": login_action,
+            "body_snippet": form_html[:500],
         },
     })
 
-    #Step 3: Submit credentials (user confirms request)
-    #login_resp = session.post(
-     #   login_action,
-      #  data={"username": USERNAME, "password": PASSWORD},
-       # headers={"Cookie": cookie},
-        #allow_redirects=False,
-    #)
+    #Step 2: Submit credentials (user confirms request) (browser -> AS)
+    #Manual cookie header is not needed, session manages cookies automatically
     login_headers = {
-        "Cookie": cookie,
         "User-Agent": user_agent,
     }
     login_rec = timed_request(
@@ -216,6 +248,7 @@ def run_normal_flow(run: int=1) -> dict:
         login_action,
         data={"username": USERNAME, "password": PASSWORD},
         headers=login_headers,
+        allow_redirects=False,
     )
     login_resp = login_rec["response"]
     redirect_back = login_resp.headers.get("Location", "")
@@ -236,16 +269,17 @@ def run_normal_flow(run: int=1) -> dict:
         },
     })
 
-    if not redirect_back:
+    if not redirect_back.startswith(REDIRECT_URI):
         trace["outcome"] = {
-            "result": "login_failed_no_redirect",
+            "result": "login_failed_bad_redirect",
             "status": login_resp.status_code,  
-            "issue": "no_redirect_after_login",
-            "reason": "Login POST did not include Location header back to redirect_uri",
+            "issue": "login_post_failed",
+            "reason": f"Keycloak returned {login_resp.status_code} on login post, expected 302 to {REDIRECT_URI}, got: {redirect_back}",
         }
         return save_trace(trace, run)
     
-    #Step 4: AS generates code and redirects to client (3 returns code)
+    #Step 3: AS generates code and redirects to client (3 returns code)
+    #Here we are extracting code from redirect
     try:
         code = extract_code_from_location(redirect_back)
     except RuntimeError as e:
@@ -258,7 +292,8 @@ def run_normal_flow(run: int=1) -> dict:
         "code_present": True,
     })
 
-    #Step 5: Client requests token (4 tokens token)
+    #Step 4: Client requests token (4 tokens token)
+    #Token exchange (client -> AS)
     token_data = {
         "grant_type": "authorization_code",
         "client_id": CLIENT_ID,
@@ -266,13 +301,13 @@ def run_normal_flow(run: int=1) -> dict:
         "redirect_uri": REDIRECT_URI,
         "code_verifier": code_verifier,
     }
-    #token_resp = session.post(token_endpoint, data=token_data, allow_redirects=False)
     token_rec = timed_request(
         session, 
         "POST",
         token_endpoint,
         data=token_data,
         headers=default_headers,
+        allow_redirects=False,
     )
     token_resp = token_rec["response"]
 
