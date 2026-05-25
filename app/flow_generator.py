@@ -130,10 +130,12 @@ def make_session() -> requests.Session:
     session.cookies.set_policy(AllowSecureOnHTTP())
     return session
 
-def run_normal_flow(run: int=1) -> dict:
-    """Automated normal authorization code and PKCE flow: 
-    authorization request, login, code reception, token exchange
-    Writes traces/normal/normal_<run>.json and returns trace dict."""
+def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=None) -> dict:
+    """Shared core for all flows (normal and flawed)
+    -Scenario: label for traces directory and outcome.scenario
+    -build_auth_fn: function returning auth_endpoint, token_endpoint, auth_params, code_verifier
+    -mutate_token_request_fn: provides dict for all flaws using token_data dict"""
+
     os.makedirs(TRACES_DIR, exist_ok=True)
     session = make_session()
 
@@ -141,10 +143,10 @@ def run_normal_flow(run: int=1) -> dict:
     user_agent = random.choice(USER_AGENTS)
     default_headers = {"User-Agent": user_agent}
 
-    auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
+    auth_endpoint, token_endpoint, auth_params, code_verifier = build_auth_fn()
 
     trace = {
-        "scenario": "normal",
+        "scenario": scenario,
         "run": run,
         "chosen_scope": auth_params.get("scope"),
         "user_agent": user_agent,
@@ -165,8 +167,6 @@ def run_normal_flow(run: int=1) -> dict:
     )
     auth_resp = auth_rec["response"]
 
-    
-
     if auth_resp.status_code not in (200, 302):
         trace["steps"].append({
             "step": "authorization_request",
@@ -186,7 +186,7 @@ def run_normal_flow(run: int=1) -> dict:
             "result": "auth_request_failed",
             "status": auth_resp.status_code,
             "issue": "authorization_endpoint_rejected_request",
-            "reason": "Authorization endpoint did not return 200/302 for normal flow",
+            "reason": "Authorization endpoint did not return 200/302",
         }
         return save_trace(trace, run)
     
@@ -217,6 +217,21 @@ def run_normal_flow(run: int=1) -> dict:
     try:
         login_action = get_login_action_url(form_html)
     except RuntimeError as e:
+        trace["steps"].append({
+            "step": "authorizatoin_request",
+            "duration_in_ms": step1_duration,
+            "request": {
+                "method": "GET",
+                "url": auth_endpoint,
+                "params": auth_params,
+                "headers": default_headers,
+            },
+            "response": {
+                "status": form_status,
+                "headers": form_headers,
+                "body_snippet": form_html[:500]
+            }
+        })
         trace["outcome"] = {"result": "no_login_form", "details": str(e)}
         return save_trace(trace, run)
     
@@ -268,7 +283,7 @@ def run_normal_flow(run: int=1) -> dict:
             "body_snippet": login_resp.text[:500],
         },
     })
-
+    #This check can be removed later for flawed scenarios
     if not redirect_back.startswith(REDIRECT_URI):
         trace["outcome"] = {
             "result": "login_failed_bad_redirect",
@@ -301,6 +316,10 @@ def run_normal_flow(run: int=1) -> dict:
         "redirect_uri": REDIRECT_URI,
         "code_verifier": code_verifier,
     }
+
+    if mutate_token_request_fn is not None:
+        token_data = mutate_token_request_fn(token_data)
+
     token_rec = timed_request(
         session, 
         "POST",
@@ -320,9 +339,9 @@ def run_normal_flow(run: int=1) -> dict:
             "method": "POST",
             "url": token_endpoint,
             "data": {
-                "grant_type": "authorization_code",
-                "client_id": CLIENT_ID,
-                "redirect_uri": REDIRECT_URI,
+                "grant_type": token_data.get("grant_type"),
+                "client_id": token_data.get("client_id"),
+                "redirect_uri": token_data.get("redirect_uri"),
             },
             "headers": default_headers,
         },
@@ -338,7 +357,7 @@ def run_normal_flow(run: int=1) -> dict:
             "result": "success", 
             "status": 200,
             "issue": None,
-            "reason": "Tokens successfully issued for normal PKCE flow",
+            "reason": f"Tokens successfully issued for {scenario} flow",
         }
     else:
         trace["outcome"] = {
@@ -349,6 +368,15 @@ def run_normal_flow(run: int=1) -> dict:
         }
 
     return save_trace(trace, run)   
+
+def run_normal_flow(run: int = 1) -> dict:
+    """Normal authorization + PKCE flow"""
+    return run_flow(
+        scenario="normal",
+        run=run,
+        build_auth_fn=build_normal_auth_request,
+        mutate_token_request_fn=None,
+    )
 
 def save_trace(trace: dict, run: int) -> dict:
     scenario = trace.get("scenario", "unknown")
