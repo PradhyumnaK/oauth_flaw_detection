@@ -11,6 +11,7 @@ import random
 import http
 from pathlib import Path
 from urllib.parse import urlencode, urlparse, parse_qs
+STOLEN_REFRESH_TOKENS: list[str] = []
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
@@ -419,17 +420,17 @@ def build_open_redirect_auth_request():
     }
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
-def run_open_redirect_flow(run: int = 1) -> dict:
+def run_open_redirect_flow(run: int = 1, scenario: str = "redirect_flaw") -> dict:
     """Flaw scenario: redirect_flaw
     The AS is expected to reject the redirect_uri. The flaw is in the client's request"""
     trace = run_flow(
-        scenario = "redirect_flaw",
+        scenario = scenario,
         build_auth_fn=build_open_redirect_auth_request,
         run=run,
         mutate_token_request_fn=None,
     )
 
-    #Relabelling based on first step status
+    #Case 1: AS rejected the request at auth endpoint (this is when redirect uri is stricly defined).
     if trace.get("steps"):
         first_step = trace["steps"][0]
         status  = first_step["response"].get("status")
@@ -441,6 +442,24 @@ def run_open_redirect_flow(run: int = 1) -> dict:
                 "status": status,
                 "issue": "unregistered_redirect_uri",
                 "reason": f"AS rejected redirect_uri not matching registered value: {bad_redirect}",
+            }
+            save_trace(trace, run)
+            return trace
+
+    #Case 2: AS accepted but code was sent to the malicious redirect (this is when "*" is used at the end of the redirect uri).
+    code_step = next((s for s in trace.get("steps", []) if s["step"] == "code_received"), None)
+    if code_step:
+        redirect_to = code_step.get("redirect_to", "")
+        #Code URL has more parameters after the registered callback
+        if "?" in redirect_to and any(
+            suffix in redirect_to
+            for suffix in ["evil.example", "attacker.com", "//evil"]
+        ):
+            trace["outcome"] = {
+                "result": "code_issued_to_malicious_redirect",
+                "status": 200,
+                "issue": "open_redirector_exploited",
+                "reason": f"Authorization code was delivered to attacker URI: {redirect_to}",
             }
             save_trace(trace, run)
     return trace
@@ -517,13 +536,26 @@ def build_no_pkce_auth_request():
     }
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
-def run_no_pkce_flow(run: int = 1) -> dict:
-    """Flaw scenario: no_pkce. Auth request omits PKCE parameters"""
+def run_no_pkce_flow(run: int = 1, scenario: str = "no_pkce") -> dict:
+    """Flaw scenario: no_pkce. Auth request omits PKCE parameters
+    -no_pkce_accepted: verifier stripped and keycloak accepts (PKCE is optional)
+    -no_pkce_rejected: verifier is sent without challenge and keycloak rejects"""
+    def strip_pkce(token_data: dict) -> dict:
+        #Removing code verifier so token exchange matches the auth request
+        #which had no PKCE challenge. This is to simulate a client that has no PKCE.
+        token_data.pop("code_verifier", None)
+        return token_data
+    
+    if scenario == "no_pkce_accepted":
+        mutate_fn = strip_pkce
+    else:
+        mutate_fn = None
+
     trace = run_flow(
-        scenario="no_pkce",
+        scenario=scenario,
         build_auth_fn=build_no_pkce_auth_request,
         run=run,
-        mutate_token_request_fn=None,
+        mutate_token_request_fn=mutate_fn,
     )
     outcome = trace.get("outcome", {})
     if outcome.get("result") == "success":
@@ -532,20 +564,100 @@ def run_no_pkce_flow(run: int = 1) -> dict:
         save_trace(trace, run)
     return trace
 
-def run_refresh_misuse_flow(run: int = 1) -> dict:
+def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> dict:
     """Flaw scenario: refresh_misuse
-    -Do a normal auth +login + token flow
-    -Then misuse the refresh token with an incorrect_client_id"""
+    -refresh_misuse_rejected:
+        Normal auth +login +token flow, then misuse with incorrect client id.
+    -refresh_misuse_stolen:
+        Use a refresh token stolen from a previous run in a new session
+        with correct client id (this is the attack simulation)."""
     os.makedirs(TRACES_DIR, exist_ok=True)
-    session = make_session()
+    scenario = scenario.lower()
 
     user_agent = random.choice(USER_AGENTS)
     default_headers = {"User-Agent": user_agent}
 
+    #Scenario: stolen refresh token misuse
+    if scenario == "refresh_misuse_stolen":
+        #We only need token endpoint and the stolen token here
+        _, token_endpoint, _, _ = build_normal_auth_request()
+        
+        trace = {
+            "scenario": scenario,
+            "run": run,
+            "user_agent": user_agent,
+            "steps": [],
+            "outcome": {},
+        }
+
+        if not STOLEN_REFRESH_TOKENS:
+            trace["outcome"] = {
+                "result": "no_stolen_token_available",
+                "issue": "stolen_token_pool_empty",
+                "reason": "No refresh tokens available, run refresh_misuse_rejected scenario first",
+            }
+            return save_trace(trace, run)
+        stolen_token = STOLEN_REFRESH_TOKENS[(run-1)%len(STOLEN_REFRESH_TOKENS)]
+        attacker_session = make_session()
+
+        refresh_data = {
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID,
+            "refresh_token": stolen_token,
+        }
+        refresh_rec = timed_request(
+            attacker_session,
+            "POST",
+            token_endpoint,
+            data=refresh_data,
+            headers=default_headers,
+            allow_redirects=False,
+        )
+        refresh_resp = refresh_rec["response"]
+
+        trace["steps"].append({
+            "step": "stolen_refresh_attempt",
+            "duration_in_ms": refresh_rec["duration_in_ms"],
+            "request": {
+                "method": "POST",
+                "url": token_endpoint,
+                "data": {
+                    "grant_type": "refresh_token",
+                    "client_id": CLIENT_ID,
+                },
+                "headers": default_headers,
+                "note": "New session with no original cookies, attacker using stolen refresh token",
+            },
+            "response": {
+                "status": refresh_resp.status_code,
+                "headers": dict(refresh_resp.headers),
+                "body_snippet": refresh_resp.text[:500],
+            },
+        })
+
+        if refresh_resp.status_code == 200:
+            trace["outcome"] = {
+                "result": "refresh_misuse_accepted",
+                "status": 200,
+                "issue": "stolen_refresh_token_accepted",
+                "reason": "AS issued new tokens using a stolen refresh token with correct client id",
+            }
+
+        else:
+            trace["outcome"] = {
+                "result": "stolen_token_rejected",
+                "status": refresh_resp.status_code,
+                "issue": "stolen_refresh_token_rejected",
+                "reason": f"AS rejected stolen refresh token: {refresh_resp.text[:200]}",
+            }
+        return save_trace(trace, run)
+
+    #Scenario: refresh misuse rejected by AS
+    session = make_session()
     auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
 
     trace = {
-        "scenario": "refresh_misuse",
+        "scenario": scenario,
         "run": run,
         "chosen_scope": auth_params.get("scope"),
         "user_agent": user_agent,
@@ -658,7 +770,7 @@ def run_refresh_misuse_flow(run: int = 1) -> dict:
         "request": {
             "method": "POST",
             "url": login_action,
-            "data": {"username": USER_AGENTS, "password": "***"},
+            "data": {"username": USERNAME, "password": "***"},
             "headers": login_headers,
         },
         "response": {
@@ -737,7 +849,7 @@ def run_refresh_misuse_flow(run: int = 1) -> dict:
         }
         return save_trace(trace, run)
     
-    #Step 5:Misuse refresh token
+    #Step 5:Misuse refresh token and store it for stolen variant
     token_json = token_resp.json()
     refresh_token = token_json.get("refresh_token")
 
@@ -749,6 +861,9 @@ def run_refresh_misuse_flow(run: int = 1) -> dict:
             "reason": "IdP did not issue a refresh token, misuse not attempted",
         }
         return save_trace(trace, run)
+    
+    #Store refresh token for later stolen token run
+    STOLEN_REFRESH_TOKENS.append(refresh_token)
     
     #Flawed refresh using wrong client id
     refresh_data = {
@@ -768,7 +883,7 @@ def run_refresh_misuse_flow(run: int = 1) -> dict:
     refresh_resp = refresh_rec["response"]
 
     trace["steps"].append({
-        "step": "refresh_misuse",
+        "step": "refresh_misuse_wrong_client",
         "duration_in_ms": refresh_rec["duration_in_ms"],
         "request": {
             "method": "POST",
@@ -787,7 +902,7 @@ def run_refresh_misuse_flow(run: int = 1) -> dict:
     })
 
     trace["outcome"] = {
-        "result": "refresh_misuse",
+        "result": "refresh_misuse_rejected",
         "status": refresh_resp.status_code,
         "issue": "refresh_token_misuse",
         "reason": "Client used refresh token with incorrect client id",
@@ -811,10 +926,13 @@ def main():
     #for run in range(1,126):
      #   print(f"Running normal flow: #{run}")
       #  run_normal_flow(run=run)
-    #run_open_redirect_flow(run=1)
+    #run_open_redirect_flow(run=1, scenario = "redirect_flaw_strict")
+    #run_open_redirect_flow(run=1, scenario = "redirect_flaw_misconfig")
     #run_pkce_downgrade(run=1)
-    #run_no_pkce_flow(run=1)
-    run_refresh_misuse_flow(run=1)
+    #run_no_pkce_flow(run=1, scenario = "no_pkce_rejected")
+    #run_no_pkce_flow(run=1, scenario = "no_pkce_accepted")
+    run_refresh_misuse_flow(run=1, scenario="refresh_misuse_rejected")
+    run_refresh_misuse_flow(run=1, scenario="refresh_misuse_stolen")
 
 
 
