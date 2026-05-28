@@ -1,5 +1,5 @@
 """feature_extractor.py
-Extracts 38 feature vectors from OAuth flow traces.
+Extracts 37 feature vectors from OAuth flow traces.
 32 of those are taken from Munonye and Peter's work (2022).
 5 new feature vectors are added considering the new RFC 9700 standards."""
 
