@@ -65,13 +65,26 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
     refresh_misuse_wrong_client_step = step(trace, "refresh_misuse")
     refresh_misuse_wrong_client = int(bool(refresh_misuse_wrong_client_step))
     #Stolen refresh attempt in a new session
-    stolen_refresh_attempt_step = step(trace, "refresh_misuse")
+    stolen_refresh_attempt_step = step(trace, "stolen_refresh_attempt")
     stolen_refresh_attempt = int(bool(stolen_refresh_attempt_step))
     #Code present flag
     code_present = int(bool(code_rcvd.get("code_present")))
     #Token response status
     token_status = tok_ex.get("response", {}).get("status", 0)
     token_error = int(token_status != 200)
+    #New additions to fix classifier issue
+    #Refresh misuse step present(wrong client id attempt)
+    refresh_step = step(trace, "refresh_misuse")
+    refresh_status = refresh_step.get("response", {}).get("status", 0) if refresh_step else 0
+    #Stolen refresh attempt step present
+    stolen_step = step(trace, "stolen_refresh_attempt")
+    stolen_status = stolen_step.get("response", {}).get("status", 0) if stolen_step else 0
+    #Redirect misconfig: code was issued to malicious URI
+    code_step = step(trace, "code_received")
+    redirect_to = code_step.get("redirect_to", "") if code_step else ""
+    redirect_code_to_malicious = int(
+        bool(code_step) and "?" in redirect_to and redirect_to.startswith(REDIRECT_URI)
+    )
 
     flags = {
         "rule_redirect_strict_mismatch": redirect_strict_mismatch,
@@ -82,20 +95,23 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
         "rule_stolen_refresh_attempt": stolen_refresh_attempt,
         "rule_code_missing": 1 - code_present,
         "rule_token_error": token_error,
+        #New flags to fix classifier issue
+        "rule_refresh_step_present": int(bool(refresh_step)),
+        "rule_refresh_rejected_401": int(refresh_status == 401),
+        "rule_stolen_step_present": int(bool(stolen_step)),
+        "rule_stolen_accepted_200": int(stolen_status == 200),
+        "rule_redirect_code_to_malicious": redirect_code_to_malicious,
     }
 
     #Rule label decision
-    #More specific first as order is important
     label = "normal"
-
-    if flags["rule_refresh_misuse_wrong_client"]:
+    #New refresh specific rules first
+    if flags["rule_refresh_step_present"] and flags["rule_refresh_rejected_401"]:
         label = "refresh_misuse_rejected"
-    elif flags["rule_stolen_refresh_attempt"]:
-        #Deciding accepetd or rejected based on token status
-        if token_status == 200:
+    elif flags["rule_stolen_step_present"]:
+        if flags["rule_stolen_accepted_200"]:
             label = "refresh_misuse_stolen"
         else:
-            #This is when AS rejects the stolen refresh attempt
             label = "refresh_misuse_rejected"
     elif flags["rule_redirect_strict_mismatch"]:
         label = "redirect_flaw_strict"
@@ -104,16 +120,15 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
     elif flags["rule_pkce_plain"]:
         label = "pkce_downgrade"
     elif flags["rule_pkce_missing"]:
-        #Deciding accepted or rejected based on the token status
         if token_status == 200:
             label = "no_pkce_accepted"
         else:
             label = "no_pkce_rejected"
     else:
         #code and token errors without explicit flaw injection
-        #keep normal unless scenario says otherwise
         if token_error and scenario and scenario in LABEL_MAP:
             label = scenario
+    
     return label, flags
 
 def main():

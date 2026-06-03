@@ -343,6 +343,8 @@ def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=N
                 "grant_type": token_data.get("grant_type"),
                 "client_id": token_data.get("client_id"),
                 "redirect_uri": token_data.get("redirect_uri"),
+                #Fix to solve classifier issue
+                "code_verifier_sent": bool(token_data.get("code_verifier")),
             },
             "headers": default_headers,
         },
@@ -926,44 +928,13 @@ def main():
     Note: The strict open redirect flows must be run separately with 
     strict redirect uri set in the Keycloak admin for the client."""
     #Run the normal flow 125 times to create 125 randomized flow traces
-    for run in range(1,126):
-        print(f"Running normal flow: #{run}")
-        run_normal_flow(run=run)
-    
+   
     #Open redirect flow that Keycloak rejects
     for run in range(1, 126):
         print(f"Running strict open redirect flow: #{run}")
         run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
-    #Open redirect flow that Keycloak accepts
-    for run in range(1, 126):
-        print(f"Running misconfigured open redirect flow: #{run}")
-        run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
-    
-    #PKCE downgrade flows
-    for run in range(1, 126):
-        print(f"PKCE downgrade flow: #{run}")
-        run_pkce_downgrade(run=run)
-    
-    #No PKCE rejected flows
-    for run in range(1, 126):
-        print(f"Strict No PKCE flow: #{run}")
-        run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
-    
-    #No PKCE accepted flows
-    for run in range(1, 126):
-        print(f"Misconfigured No PKCE flow: #{run}")
-        run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
-
-    #Rejected refresh misuse flows
-    for run in range(1, 126):
-        print(f"Rejected refresh misuse flow: #{run}")
-        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_rejected")
-    
-    #Refresh misuse token stolen
-    for run in range(1, 126):
-        print(f"Stolen refresh misuse token flow: #{run}")
-        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
+   
 
 
 if __name__=="__main__":

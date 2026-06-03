@@ -43,6 +43,9 @@ def extract(trace):
     th = headers(tok_ex, "response") #token response headers
     lh = headers(login_sbmt, "request") #login request headers
 
+    #Fix for classifier issue
+    tok_req_data = tok_ex.get("request", {}).get("data", {})
+
     try:
         tb = json.loads(tok_ex.get("response", {}).get("body_snippet", "{}"))
     except Exception:
@@ -90,7 +93,9 @@ def extract(trace):
         "x35": int("iss" in (code_rcvd.get("redirect_to") or "")),
         "x36": int(ap.get("redirect_uri", "").split("?")[0] == REDIRECT_URI),
         "x37": int(bool(step(trace, "refresh_misuse"))),
-        "label": LABEL_MAP.get(trace.get("scenario", ""), -1),        
+        #x38: code_verifier sent in token exchange (distinguishes no_pkce_accepted from rejected)
+        "x38": int(bool(tok_req_data.get("code_verifier_sent", False))),
+        "label": LABEL_MAP.get(trace.get("scenario", ""), -1),
     }
 
 def main():
