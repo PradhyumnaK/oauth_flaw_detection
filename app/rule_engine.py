@@ -62,7 +62,7 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
     #PKCE downgrade to plain
     pkce_plain = int(ap.get("code_challenge_method") == "plain")
     #Refresh token misuse with wrong client id
-    refresh_misuse_wrong_client_step = step(trace, "refresh_misuse")
+    refresh_misuse_wrong_client_step = step(trace, "refresh_misuse_wrong_client")
     refresh_misuse_wrong_client = int(bool(refresh_misuse_wrong_client_step))
     #Stolen refresh attempt in a new session
     stolen_refresh_attempt_step = step(trace, "stolen_refresh_attempt")
@@ -74,7 +74,7 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
     token_error = int(token_status != 200)
     #New additions to fix classifier issue
     #Refresh misuse step present(wrong client id attempt)
-    refresh_step = step(trace, "refresh_misuse")
+    refresh_step = step(trace, "refresh_misuse_wrong_client")
     refresh_status = refresh_step.get("response", {}).get("status", 0) if refresh_step else 0
     #Stolen refresh attempt step present
     stolen_step = step(trace, "stolen_refresh_attempt")
@@ -82,8 +82,13 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
     #Redirect misconfig: code was issued to malicious URI
     code_step = step(trace, "code_received")
     redirect_to = code_step.get("redirect_to", "") if code_step else ""
+    #Only fire if redirect_to contains an attacker controlled parameter
+    #Normal flows have state and code but no site name or atatcker patterns
+    MALICIOUS_INDICATORS = ["evil.example", "attacker.com", "//evil", "steal", "next=http"]
     redirect_code_to_malicious = int(
-        bool(code_step) and "?" in redirect_to and redirect_to.startswith(REDIRECT_URI)
+        bool(code_step)
+        and bool(redirect_to)
+        and any(indicator in redirect_to for indicator in MALICIOUS_INDICATORS)
     )
 
     flags = {
