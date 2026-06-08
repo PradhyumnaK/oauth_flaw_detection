@@ -91,47 +91,65 @@ def apply_rules(trace: Dict[str, Any]) -> Tuple[str, Dict[str, int]]:
         and any(indicator in redirect_to for indicator in MALICIOUS_INDICATORS)
     )
 
-    flags = {
-        "rule_redirect_strict_mismatch": redirect_strict_mismatch,
-        "rule_redirect_wildcard_misconfig": redirect_wildcard_misconfig,
-        "rule_pkce_missing": pkce_missing,
-        "rule_pkce_plain": pkce_plain,
-        "rule_refresh_misuse_wrong_client": refresh_misuse_wrong_client,
-        "rule_stolen_refresh_attempt": stolen_refresh_attempt,
-        "rule_code_missing": 1 - code_present,
-        "rule_token_error": token_error,
-        #New flags to fix classifier issue
-        "rule_refresh_step_present": int(bool(refresh_step)),
-        "rule_refresh_rejected_401": int(refresh_status == 401),
-        "rule_stolen_step_present": int(bool(stolen_step)),
-        "rule_stolen_accepted_200": int(stolen_status == 200),
-        "rule_redirect_code_to_malicious": redirect_code_to_malicious,
-    }
+    #Shared rule families
+    #PKCE weak: missing or downgraded PKCE
+    pkce_missing = int(
+        not ap.get("code_challenge") or not ap.get("code_challenge_method")
+    )
+    pkce_plain = int(ap.get("code_challenge_method") == "plain")
+    rule_pkce_weak = int(pkce_missing or pkce_plain)
 
-    #Rule label decision
+    #Redirect flaw: strict mismatch or wildcard pattern
+    redirect_uri = ap.get("redirect_uri", "") or ""
+    redirect_strict_mismatch = int(
+        redirect_uri != REDIRECT_URI and not redirect_uri.startswith(REDIRECT_URI + "?")
+    )
+    redirect_wildcard_misconfig = int(redirect_uri.startswith(REDIRECT_URI + "?"))
+
+    code_step = step(trace, "code_received")
+    redirect_to = code_step.get("redirect_to", "") if code_step else ""
+    MALICIOUS_INDICATORS = ["evil.example", "attacker.com", "//evil", "steal", "next=http"]
+    redirect_code_to_malicious = int(
+        redirect_strict_mismatch
+        or redirect_wildcard_misconfig
+        or redirect_code_to_malicious
+    )
+    rule_redirect_suspicious = int(
+        redirect_strict_mismatch
+        or redirect_wildcard_misconfig
+        or redirect_code_to_malicious
+    )
+
+    #Refresh abuse: any refresh misuse or stolen reuse attempt
+    refresh_step = step(trace, "refresh_misuse_wrong_client")
+    stolen_step = step(trace, "stolen_refresh_attempt")
+    rule_refresh_abuse = int(bool(refresh_step) or bool(stolen_step))
+
+    #Generic errors
+    token_error = int(token_status != 200)
+    auth_status = auth_req.get("response", {}).get("status", 0) if auth_req else 0
+    rule_auth_error = int(auth_status >= 400)
+    rule_token_error = token_error
+
+    flags = {
+        "rule_pkce_weak": rule_pkce_weak,
+        "rule_redirect_suspicious": rule_redirect_suspicious,
+        "rule_refresh_abuse": rule_refresh_abuse,
+        "rule_auth_error": rule_auth_error,
+        "rule_token_error": rule_token_error,
+    }
+    #Rule label decision (coarse family labels)
+
     label = "normal"
-    #New refresh specific rules first
-    if flags["rule_refresh_step_present"] and flags["rule_refresh_rejected_401"]:
-        label = "refresh_misuse_rejected"
-    elif flags["rule_stolen_step_present"]:
-        if flags["rule_stolen_accepted_200"]:
-            label = "refresh_misuse_stolen"
-        else:
-            label = "refresh_misuse_rejected"
-    elif flags["rule_redirect_strict_mismatch"]:
+    if flags["rule_refresh_abuse"]:
+        label = "refresh_misuse_rejected" #Treat all refresh abuse as one family
+    elif flags["rule_redirect_suspicious"]:
         label = "redirect_flaw_strict"
-    elif flags["rule_redirect_wildcard_misconfig"]:
-        label = "redirect_flaw_misconfig"
-    elif flags["rule_pkce_plain"]:
-        label = "pkce_downgrade"
-    elif flags["rule_pkce_missing"]:
-        if token_status == 200:
-            label = "no_pkce_accepted"
-        else:
-            label = "no_pkce_rejected"
-    else:
-        #code and token errors without explicit flaw injection
-        if token_error and scenario and scenario in LABEL_MAP:
+    elif flags["rule_pkce_weak"]:
+        label = "no_pkce_rejected" #Group all PKCE weaknesses under one family
+    elif flags["rule_auth_error"] or flags["rule_token_error"]:
+        #Generic protocol error, map back to scenario if known
+        if scenario and scenario in LABEL_MAP:
             label = scenario
     
     return label, flags
