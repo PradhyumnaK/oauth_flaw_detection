@@ -408,7 +408,14 @@ def build_open_redirect_auth_request():
         "?r=http://evil.example/cb",
     ]
 
-    malicious_redirect = REDIRECT_URI + random.choice(suffixes)
+    redirect_variants = [
+        REDIRECT_URI + random.choice(suffixes), #wildcard
+        REDIRECT_URI.replace("4000", "4001"), #different port
+        REDIRECT_URI + "/extra", #extra path segment
+        "http://localhost:4000/cb", #similar but not identical path
+    ]
+
+    malicious_redirect = REDIRECT_URI + random.choice(redirect_variants)
 
     auth_params = {
         "response_type": "code",
@@ -478,7 +485,7 @@ def build_pkce_downgrade_auth_request():
     auth_endpoint = meta["authorization_endpoint"]
     token_endpoint = meta["token_endpoint"]
 
-    #Misusing the verifier directly as the challenge
+    #Misusing the verifier directly as the challenge with some variants
     code_verifier, _ = pkce_pair()
     state = secrets.token_urlsafe(16)
     nonce = secrets.token_urlsafe(16)
@@ -490,9 +497,15 @@ def build_pkce_downgrade_auth_request():
         "redirect_uri": REDIRECT_URI,
         "scope": scope,
         "nonce": nonce,
-        "code_challenge": code_verifier,
-        "code_challenge_method": "plain",
     }
+
+    downgrade_variants = [
+        {"code_challenge": code_verifier, "code_challenge_method": "plain"},
+        {"code_challenge": code_verifier[:10], "code_challenge_method": "S256"}, #Truncated challenge
+        {"code_challenge": code_verifier[:16], "code_challenge_method": "plain"}, #Truncated+plain
+    ]
+    auth_params.update(random.choice(downgrade_variants))
+
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
 def run_pkce_downgrade(run: int = 1) -> dict:
@@ -536,6 +549,13 @@ def build_no_pkce_auth_request():
         "nonce": nonce,
         #Removed PKCE fields
     }
+    #Varying how PKCE absence looks
+    pkce_absent_variant = random.choice([
+        {}, #Pure no PKCE, completely absent
+        {"code_challenge": code_verifier}, #challenge without method
+        {"code_challenge_method": "S256"}, #method without challenge
+    ])
+    auth_params.update(pkce_absent_variant)
     return auth_endpoint, token_endpoint, auth_params, code_verifier
 
 def run_no_pkce_flow(run: int = 1, scenario: str = "no_pkce") -> dict:
@@ -868,11 +888,24 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     STOLEN_REFRESH_TOKENS.append(refresh_token)
     
     #Flawed refresh using wrong client id
-    refresh_data = {
-        "grant_type": "refresh_token",
-        "client_id": CLIENT_ID + "-wrong",
-        "refresh_token": refresh_token,
-    }
+    misuse_variants = [
+        {
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID + "-wrong",
+            "refresh_token": refresh_token,
+        },
+        {
+            "grant_type": "refresh_token",
+            "client_id": CLIENT_ID.upper(), #case variation
+            "refresh_token": refresh_token,
+        },
+        {
+            "grant_type": "Refresh_token",
+            "client_id": CLIENT_ID,
+            "refresh_token": "invalid_token_" + secrets.token_urlsafe(8),
+        },
+    ]
+    refresh_data = random.choice(misuse_variants)
 
     refresh_rec = timed_request(
         session,
@@ -927,15 +960,46 @@ def main():
     """Run all scenarios 125 times to get 125 flows for each scenario
     Note: The strict open redirect flows must be run separately with 
     strict redirect uri set in the Keycloak admin for the client."""
+    
     #Run the normal flow 125 times to create 125 randomized flow traces
-   
+    for run in range(1,156):
+        print(f"Running normal flow: #{run}")
+        run_normal_flow(run=run)
+    
     #Open redirect flow that Keycloak rejects
-    for run in range(1, 126):
+    for run in range(1, 156):
         print(f"Running strict open redirect flow: #{run}")
         run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
-   
+    #Open redirect flow that Keycloak accepts
+    #for run in range(1, 156):
+     #   print(f"Running misconfigured open redirect flow: #{run}")
+      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
+    
+    #PKCE downgrade flows
+    for run in range(1, 156):
+        print(f"PKCE downgrade flow: #{run}")
+        run_pkce_downgrade(run=run)
+    
+    #No PKCE rejected flows
+    for run in range(1, 156):
+        print(f"Strict No PKCE flow: #{run}")
+        run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
+    
+    #No PKCE accepted flows
+    for run in range(1, 156):
+        print(f"Misconfigured No PKCE flow: #{run}")
+        run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
 
+    #Rejected refresh misuse flows
+    for run in range(1, 156):
+        print(f"Rejected refresh misuse flow: #{run}")
+        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_rejected")
+    
+    #Refresh misuse token stolen
+    for run in range(1, 156):
+        print(f"Stolen refresh misuse token flow: #{run}")
+        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
 
 if __name__=="__main__":
     main()
