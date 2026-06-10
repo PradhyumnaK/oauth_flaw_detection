@@ -85,10 +85,11 @@ def train_gbc(X, y, name: str, inv_label_map=None):
     print(f"[{name}] confusion matrix:\n{confusion_matrix(y_test, y_pred)}")
     
     if inv_label_map is not None:
-        target_names = [inv_label_map[i] for i in sorted(inv_label_map)]
-        cr = classification_report(y_test, y_pred, target_names=target_names)
+        labels = sorted(inv_label_map) #label mismatch fix
+        target_names = [inv_label_map[i] for i in labels]
+        cr = classification_report(y_test, y_pred, labels=labels, target_names=target_names, zero_division=0)
     else:
-        cr = classification_report(y_test, y_pred)
+        cr = classification_report(y_test, y_pred, zero_division=0)
     
     print(f"[{name}] classification report:\n{cr}")
 
@@ -167,11 +168,16 @@ def main():
     print("Confusion matrix:")
     print(confusion_matrix(y_true, y_pred))
     print("\nClassification report:")
+    #label mismatch fix
+    labels = sorted(INV_LABEL_MAP)
+    target_names = [INV_LABEL_MAP[i] for i in labels]
     print(
         classification_report(
             y_true,
             y_pred,
-            target_names=[INV_LABEL_MAP[i] for i in sorted(INV_LABEL_MAP)],
+            labels=labels,
+            target_names=target_names,
+            zero_division=0,
         )
     )
     if proba is not None:
