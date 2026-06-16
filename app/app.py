@@ -93,15 +93,14 @@ def trace_to_graph(trace, output_path):
 def home():
     if not session.get("logged_in"):
         return render_template("login.html")
-    else:
-        return "Hello There <a href='/logout'>Logout</a>"
+    return render_template("home.html", user=session.get("user"))
 
 @app.route("/login")
 def login():
-    redirect_uri = url_for('callback', _external=True)
+    #redirect_uri = url_for('callback', _external=True)
     nonce=generate_token()
     session['nonce'] = nonce
-    return keycloak.authorize_redirect(redirect_uri, nonce=nonce)
+    return keycloak.authorize_redirect(url_for("callback", _external=True), nonce=nonce)
 
 @app.route("/callback")
 def callback():
@@ -116,6 +115,17 @@ def callback():
 def logout():
     session.clear()
     return redirect(url_for("home"))
+
+@app.route("/flows")
+@login_required
+def list_flows():
+    scenarios = {}
+    if TRACES_ROOT.exists():
+        for d in sorted(TRACES_ROOT.iterdir()):
+            if d.is_dir():
+                runs = sorted(int(f.step.split("_")[-1] for f in d.glob("*.json")))
+                scenarios[d.name] = runs
+    return render_template("flows.html", scenarios=scenarios)
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=4000)

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+    <head><title>Flows</title></head>
+    <body>
+        <h1>OAuth Flow Traces</h1>
+        <a href="/">Home</a>
+        {% for scenario, runs in scenario.items() %}
+            <h3>{{scenario}}</h3>
+            <p>
+            {% for run in runs[:10] %}
+                <a href="/flows/{{scenario}}/{{run}}">Run {{run}}</a>&nbsp;
+            {% endfor %}
+            </p>
+        {% endfor %}
+    </body>
+</html>
