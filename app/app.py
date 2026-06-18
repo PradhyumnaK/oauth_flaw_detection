@@ -67,7 +67,7 @@ def trace_to_graph(trace, output_path):
         src = steps[i]
         method = src.get("request", {}).get("method", "")
         status = src.get("response", {}).get("status", "")
-        net.add_edge(i, i+1, label=f"{method} {status}", color="#708090")
+        net.add_edge(i, i+1, label=f"{method} {status}", color="#708090", font={"color": "#D31D1D"})
     
     #outcome node at the end
     result = outcome.get("result", "success")
@@ -123,9 +123,23 @@ def list_flows():
     if TRACES_ROOT.exists():
         for d in sorted(TRACES_ROOT.iterdir()):
             if d.is_dir():
-                runs = sorted(int(f.step.split("_")[-1] for f in d.glob("*.json")))
+                runs = sorted(int(f.stem.split("_")[-1]) for f in d.glob("*.json"))
                 scenarios[d.name] = runs
     return render_template("flows.html", scenarios=scenarios)
+
+@app.route("/flows/<scenario>/<int:run>")
+@login_required
+def show_flow(scenario, run):
+    trace_path = TRACES_ROOT / scenario / f"{scenario}_{run}.json"
+    if not trace_path.exists():
+        abort(404)
+    
+    graph_path = GRAPHS_DIR / f"{scenario}_{run}.html"
+    if not graph_path.exists():
+        trace_to_graph(json.loads(trace_path.read_text(encoding="utf-8")), graph_path)
+    
+    return render_template("flow_view.html", scenario=scenario, run=run, graph_name=f"{scenario}_{run}.html")
+
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=4000)
