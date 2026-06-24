@@ -21,6 +21,53 @@ TRACES_ROOT = Path("traces")
 GRAPHS_DIR = Path("static/graphs")
 GRAPHS_DIR.mkdir(parents=True, exist_ok=True)
 
+SCENARIO_DESCRIPTIONS = {
+    "normal": 
+        "A conformant OAuth 2.0 authorization code flow with PKCE."
+        "All steps complete successfully and tokens are issued as expected under RFC 9700.",
+    
+    "no_pkce_accepted":
+        "The client omits PKCE parameters entirely. Keycloak is configured to"
+        "treat PKCE as optional, so the flow completes and tokens are issued"
+        "despite the absence of a code_challenge, a violation of RFC 9700 clause 2.1.1.",
+    
+    "no_pkce_rejected":
+        "The client omits the PKCE challenge but still sends a code_verifier at "
+        "token exchange. The authorization server rejects the request with "
+        "invalid_grant, since a verifier with no corresponding challenge cannot "
+        "be validated.",
+
+    "pkce_downgrade":
+        "The client uses the weaker 'plain' PKCE method instead of the "
+        "RFC 9700-mandated S256. The authorization server accepts this, "
+        "demonstrating that PKCE method enforcement is not guaranteed by "
+        "default IdP configuration.",
+
+    "redirect_flaw_strict":
+        "The client sends an authorization request with an unregistered "
+        "redirect_uri containing an attacker-controlled suffix. The "
+        "authorization server performs exact string matching and rejects "
+        "the request at the first step, as required by RFC 9700 clause 4.1.3.",
+
+    "redirect_flaw_misconfig":
+        "The same malicious redirect_uri is sent, but the client is registered "
+        "with a wildcard redirect URI. The authorization server accepts the "
+        "request and issues an authorization code to the attacker-controlled "
+        "URI : a real open-redirector vulnerability.",
+
+    "refresh_misuse_rejected":
+        "After a normal flow completes, the refresh token is replayed with an "
+        "incorrect client_id. The authorization server rejects the request, "
+        "confirming that refresh tokens are correctly bound to their issuing "
+        "client.",
+
+    "refresh_misuse_stolen":
+        "A refresh token obtained from a previous session is replayed from a "
+        "new session with the correct client_id, simulating a stolen token "
+        "attack. The authorization server cannot distinguish the legitimate "
+        "client from the attacker, since the token itself is valid.",
+}
+
 oauth = OAuth(app)
 
 keycloak = oauth.register(
@@ -138,7 +185,11 @@ def show_flow(scenario, run):
     if not graph_path.exists():
         trace_to_graph(json.loads(trace_path.read_text(encoding="utf-8")), graph_path)
     
-    return render_template("flow_view.html", scenario=scenario, run=run, graph_name=f"{scenario}_{run}.html")
+    return render_template("flow_view.html", 
+                           scenario=scenario, 
+                           run=run, 
+                           graph_name=f"{scenario}_{run}.html",
+                           scenario_descriptions=SCENARIO_DESCRIPTIONS)
 
 
 if __name__ == "__main__":
