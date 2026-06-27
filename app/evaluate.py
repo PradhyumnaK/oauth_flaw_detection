@@ -13,7 +13,7 @@ import shap
 import matplotlib.pyplot as plt
 import joblib #To load gbc_32
 
-def explain_with_shap(model, X, feature_names, model_name: str):
+def explain_with_shap(model, X, feature_names, model_name: str, class_names=None):
     """Generate SHAP feature importance for a trained GBC model"""
     print(f"\n[SHAP] Generating explanations for {model_name}...")
     explainer = shap.Explainer(model.predict_proba, X)
@@ -22,9 +22,24 @@ def explain_with_shap(model, X, feature_names, model_name: str):
     plt.figure()
     shap.summary_plot(shap_values, X, feature_names=feature_names, show=False, plot_type="bar")
     plt.title(f"SHAP Feature Importance: {model_name}")
-    plt.savefig(f"shap_{model_name}_summary.png", dpi=150)
+    plt.savefig(f"shap_{model_name}_summary.png", dpi=150, bbox_inches="tight")
     plt.close()
     print(f"[SHAP] Saved shap_{model_name}_summary.png")
+
+    #CSV table
+    mean_abs_per_class = np.abs(shap_values.values).mean(axis=0) #(n_features, n_classes)
+    n_classes = mean_abs_per_class.shape[1]
+    if class_names is None:
+        class_names = [f"class_{i}" for i in range(n_classes)]
+    
+    table = pd.DataFrame(mean_abs_per_class, index=feature_names, columns=class_names)
+    table["total"] = table.sum(axis=1)
+    table = table.sort_values("total", ascending=False)
+
+    csv_path = f"shap_{model_name}_values.csv"
+    table.round(4).to_csv(csv_path)
+    print(f"[SHAP] Saved per-feature, per-class values to {csv_path}")
+    print(table.round(3).to_string())
 
 def main():
     #Load data and model
