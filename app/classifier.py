@@ -135,6 +135,12 @@ def main():
     #Train gradient boosting on full feature vector (multiclass)
     gbc_full = train_gbc(X_full, y, name="gbc_full", inv_label_map=INV_LABEL_MAP)
 
+    #RQ: Munonye and Peter's 32 geature baseline vs 38 feature set
+    print("\nRQ: Munonye and Peter's 32 feature baseline")
+    munonye_features = [f"x{i}" for i in range(1, 33)]
+    x_32 = df[munonye_features]
+    train_gbc(x_32, y, name="gbc_32_munonye", inv_label_map=INV_LABEL_MAP)
+
     #Rule gated evaluation. Normal=no rule flags, flaws using gbc_rules
     print(f"Rule gated evaluation with gbc_rules (normal = no rule flags)")
     y_true = df["label"]

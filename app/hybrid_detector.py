@@ -1,7 +1,7 @@
 """hybrid_detector.py
 Hybrid OAuth/OIDC detector:
--Uses rule features + gbc_rules model
--Applies a rule gated fallback: if no rule flags fire, classified as normal"""
+-Rule fires (if rule sum > 0): use gbc rules prediction
+-Rule silent (if rule sum is 0): defer to gbc full prediction"""
 
 from pathlib import Path
 from typing import Tuple, List
@@ -13,6 +13,7 @@ import pandas as pd
 DATASET = Path("merged_dataset.csv")
 MODELS_DIR = Path("models")
 GBC_RULES_PATH = MODELS_DIR / "gbc_rules.joblib"
+GBC_FULL_PATH = MODELS_DIR / "gbc_full.joblib"
 
 #Label maps
 LABEL_MAP = {
@@ -34,64 +35,49 @@ def load_rule_features(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("No rule columns found in merged_dataset.csv")
     return df[rule_columns]
 
-def load_hybrid_components() -> Tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
+def load_dull_features(df):
+    columns = [c for c in df.columns if c.startswith("x")]
+    if not columns:
+        raise ValueError("No x feature columns found")
+    return df[columns]
+
+def load_hybrid_components() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, np.ndarray]:
     #Load merged dataset, extract rule feature matrix and return labels
     #Returns: df (full dataframe), X_rules (rule feature subset), and y_true (label vector)
     df = pd.read_csv(DATASET)
     df["run"] = df["run"].astype(int)
 
     X_rules = load_rule_features(df)
+    x_full = load_dull_features(df)
     y_true = df["label"].to_numpy()
-    return df, X_rules, y_true
+    return df, X_rules, x_full, y_true
 
-def load_gbc_rules():
-    #Loading the trained gbc rules model
-    if not GBC_RULES_PATH.exists():
-        raise FileNotFoundError(f"Model not found: {GBC_RULES_PATH}")
-    return joblib.load(GBC_RULES_PATH)
+def load_models():
+    for p in (GBC_RULES_PATH, GBC_FULL_PATH):
+        if not p.exists():
+            raise FileNotFoundError(f"Model not found: {p}")
+    return joblib.load(GBC_RULES_PATH), joblib.load(GBC_FULL_PATH)
 
-def hybrid_predict(X_rules: pd.DataFrame, model=None) -> np.ndarray:
-    #Hybrid prediction
-    #Use gbc_rules for flaws
-    #Force normal when no rule flags fire using rule_sum == 0
-    if model is None:
-        model = load_gbc_rules()
-    
-    #Making sure it is numeric
+def hybrid_predict(X_rules, X_full, gbc_rules=None, gbc_full=None):
+    if gbc_rules is None or gbc_full is None:
+        gbc_rules, gbc_full = load_models()
     X_rules = X_rules.apply(pd.to_numeric, errors="raise")
+    X_full  = X_full.apply(pd.to_numeric, errors="raise")
 
-    rule_sum = X_rules.sum(axis=1).to_numpy()
-    y_pred_flaw = model.predict(X_rules)
+    y_proba_rules = gbc_rules.predict_proba(X_rules)
+    y_proba_full  = gbc_full.predict_proba(X_full)
 
-    y_pred = y_pred_flaw.copy()
-    normal_mask = (rule_sum == 0)
-    y_pred[normal_mask] = NORMAL_LABEL
-    return y_pred
+    # Weighted ensemble
+    combined = 0.4 * y_proba_rules + 0.6 * y_proba_full
+    return np.argmax(combined, axis=1)
 
-def hybrid_predict_proba(X_rules: pd.DataFrame, model=None) -> np.ndarray:
-    #Hybrid probability matrix
-    #For rule sum 0, normal
-    #Else, use gbc rules predicted probability
-    if model is None:
-        model = load_gbc_rules()
-    
-    #Making sure its numeric
+def hybrid_predict_proba(X_rules, X_full, gbc_rules=None, gbc_full=None):
+    if gbc_rules is None or gbc_full is None:
+        gbc_rules, gbc_full = load_models()
     X_rules = X_rules.apply(pd.to_numeric, errors="raise")
+    X_full  = X_full.apply(pd.to_numeric, errors="raise")
 
-    rule_sum = X_rules.sum(axis=1).to_numpy()
-    try:
-        y_proba_flaw = model.predic_proba(X_rules)
-    except Exception:
-        return None
-    
-    k=len(LABEL_MAP)
-    rows: List[List[float]] = []
-    for rs, ml_probs in zip(rule_sum, y_proba_flaw):
-        if rs == 0:
-            p = [0.0] * k
-            p[NORMAL_LABEL] = 1.0
-            rows.append(p)
-        else:
-            rows.append(list(ml_probs))
-    
-    return np.array(rows)
+    y_proba_rules = gbc_rules.predict_proba(X_rules)
+    y_proba_full  = gbc_full.predict_proba(X_full)
+
+    return 0.4 * y_proba_rules + 0.6 * y_proba_full
