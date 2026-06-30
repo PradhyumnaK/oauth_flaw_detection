@@ -1,0 +1,41 @@
+{
+  "scenario": "pkce_downgrade",
+  "run": 142,
+  "chosen_scope": "openid profile",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+  "steps": [
+    {
+      "step": "authorization_request",
+      "duration_in_ms": 2044,
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
+        "params": {
+          "response_type": "code",
+          "client_id": "testing",
+          "redirect_uri": "http://localhost:4000/callback",
+          "scope": "openid profile",
+          "nonce": "m2FcWOcORFZi89eP3puBww",
+          "code_challenge": "KKlwPci0CuVhl_1t",
+          "code_challenge_method": "plain"
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Server": "BaseHTTP/0.6 Python/3.14.0",
+          "Date": "Wed, 10 Jun 2026 11:56:43 GMT",
+          "Content-Type": "text/plain"
+        },
+        "body_snippet": "Dummy callback"
+      }
+    }
+  ],
+  "outcome": {
+    "result": "no_login_form",
+    "details": "Could not find login form action in Keycloak HTML"
+  }
+}

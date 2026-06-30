@@ -1,0 +1,44 @@
+{
+  "scenario": "refresh_misuse_stolen",
+  "run": 121,
+  "user_agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+  "steps": [
+    {
+      "step": "stolen_refresh_attempt",
+      "duration_in_ms": 10,
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8080/realms/master/protocol/openid-connect/token",
+        "data": {
+          "grant_type": "refresh_token",
+          "client_id": "testing"
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+        },
+        "note": "New session with no original cookies, attacker using stolen refresh token"
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Pragma": "no-cache",
+          "content-length": "3047",
+          "Content-Type": "application/json",
+          "Referrer-Policy": "no-referrer",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Robots-Tag": "none"
+        },
+        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODA0MTQzNTQsImlhdCI6MTc4MDQxNDI5NCwiYXV0aF90aW1lIjoxNzgwNDE0MjkxLCJqdGkiOiJvbnJ0cnQ6MDRkMDg2ZDctNmRjZS1mYjMxLTViNzMtNmExNDQ1YjE2MGFlIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6IlBDbXdOa0lua2kwVUVuU1Y0U2hCT0dVaCI"
+      }
+    }
+  ],
+  "outcome": {
+    "result": "refresh_misuse_accepted",
+    "status": 200,
+    "issue": "stolen_refresh_token_accepted",
+    "reason": "AS issued new tokens using a stolen refresh token with correct client id"
+  }
+}
