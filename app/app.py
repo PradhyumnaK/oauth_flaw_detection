@@ -114,7 +114,8 @@ def trace_to_graph(trace, output_path):
         src = steps[i]
         method = src.get("request", {}).get("method", "")
         status = src.get("response", {}).get("status", "")
-        net.add_edge(i, i+1, label=f"{method} {status}", color="#708090", font={"color": "#D31D1D"})
+        status_str = str(status) if status is not None else ""
+        net.add_edge(i, i+1, label=f"{method} {status_str}".strip(), color="#708090", font={"color": "#D31D1D"})
     
     #outcome node at the end
     result = outcome.get("result", "success")

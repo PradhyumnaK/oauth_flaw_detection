@@ -6,18 +6,18 @@
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 16,
+      "duration_in_ms": 15,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/cb",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?r=http://evil.example/cb",
           "scope": "openid profile",
-          "state": "XLWqN6T9i2kYJyZlkoB6Og",
-          "nonce": "PERZlzGOsN5y6DnjTbu05w",
-          "code_challenge": "jKtluzrCnGQeQwE63H7GQGZx40qGz7Tz-UDP8aDwAOU",
+          "state": "WaRCl0AW-oQDXFGMaxIA-w",
+          "nonce": "4c9TrKPRQ3i9nWH62PPfoA",
+          "code_challenge": "wy8jmHv_CuuwGuw1p2C626vnwK0NKP9YcbtwitZCWd4",
           "code_challenge_method": "S256"
         },
         "headers": {
@@ -44,6 +44,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/cb"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?r=http://evil.example/cb"
   }
 }

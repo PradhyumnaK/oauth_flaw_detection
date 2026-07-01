@@ -1,27 +1,27 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 83,
-  "chosen_scope": "openid email",
-  "user_agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+  "chosen_scope": "openid profile",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 14,
+      "duration_in_ms": 15,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example",
-          "scope": "openid email",
-          "state": "CQVCD80wMQwDN3CS6mfmJQ",
-          "nonce": "KczYGSbUoQp2Ujq3wn8WNg",
-          "code_challenge": "NOGYrLe5In1KqCegwwoz6nfn0_KhqUJwdfUt3K3tJeY",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
+          "scope": "openid profile",
+          "state": "trZnFwaB5Q4RhyIozQTFaw",
+          "nonce": "IQcgOVQOCYBPO0q9bm85VQ",
+          "code_challenge": "wlxSrZ4_KtqEbxb_dP_Q4VChQ8ilPlcyEH_fpuGoP8Q",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
         }
       },
       "response": {
@@ -44,6 +44,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
   }
 }

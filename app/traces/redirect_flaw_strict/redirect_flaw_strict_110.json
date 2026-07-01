@@ -1,23 +1,23 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 110,
-  "chosen_scope": "openid profile email",
+  "chosen_scope": "openid profile",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 12,
+      "duration_in_ms": 17,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/cb",
-          "scope": "openid profile email",
-          "state": "_8ymrJn4XQMZDwRA690GuQ",
-          "nonce": "u9QSTkgwBP4urfqM5_VRTA",
-          "code_challenge": "S-TWtHLzv7iIyAJmUcgOW_bD-E3n0P8AO7_enM0oB0U",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
+          "scope": "openid profile",
+          "state": "wHgV75TluthHmLd0uSJd3Q",
+          "nonce": "e9YTIlre0U2WiCiIU-NLUg",
+          "code_challenge": "RNaSv4HaBLtIXtg6-94XojHZD0gw_ZDh3Ntz4e85xoQ",
           "code_challenge_method": "S256"
         },
         "headers": {
@@ -44,6 +44,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/cb"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
   }
 }

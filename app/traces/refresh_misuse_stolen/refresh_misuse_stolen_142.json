@@ -1,8 +1,21 @@
 {
   "scenario": "refresh_misuse_stolen",
   "run": 142,
-  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
+    {
+      "step": "legitimate_session_context",
+      "duration_in_ms": 0,
+      "request": {
+        "method": "N/A",
+        "url": "(prior session)",
+        "data": {}
+      },
+      "response": {
+        "status": null,
+        "note": "Refresh token was originally issued to a legitimate client sessionand subsequently obtained by an attacker (e.g. via token leakage, XSS,or insecure storage)."
+      }
+    },
     {
       "step": "stolen_refresh_attempt",
       "duration_in_ms": 20,
@@ -14,7 +27,7 @@
           "client_id": "testing"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15"
         },
         "note": "New session with no original cookies, attacker using stolen refresh token"
       },
@@ -31,7 +44,7 @@
           "X-Frame-Options": "SAMEORIGIN",
           "X-Robots-Tag": "none"
         },
-        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODEwOTI5NzQsImlhdCI6MTc4MTA5MjkxNCwiYXV0aF90aW1lIjoxNzgxMDkyOTA1LCJqdGkiOiJvbnJ0cnQ6ZDE3OWUxZTctNDhlYS05MTY3LTZiNjktNTVjZWFiYjk0ZjlmIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6ImxDWnk0NnU2dURmbHZBaFlXZUNaX2xiQiI"
+        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODI4MjYyODYsImlhdCI6MTc4MjgyNjIyNiwiYXV0aF90aW1lIjoxNzgyODI2MjE4LCJqdGkiOiJvbnJ0cnQ6MGE1OGE4NGQtNTNlYS0yMzZjLWU4ODgtZGRjYjdiNjY2MDUzIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6IkFuclJ2VFd6VnJRMG1odW5jdlFSTkZxdSI"
       }
     }
   ],

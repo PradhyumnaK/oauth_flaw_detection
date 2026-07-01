@@ -1,23 +1,23 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 130,
-  "chosen_scope": "openid profile",
+  "chosen_scope": "openid",
   "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 13,
+      "duration_in_ms": 15,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example",
-          "scope": "openid profile",
-          "state": "pn2GN4I2TpwoVZUC5Th1Wg",
-          "nonce": "bJ3WCVycc4aEJ3SeaPHTxw",
-          "code_challenge": "nZImDS3eZTU-6hHzzy1nY7-HBqy4iTdDSZsv0fFt_l4",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/cb",
+          "scope": "openid",
+          "state": "FJxUGrseA9fb8vXZ-4XZ7A",
+          "nonce": "tdXiJFU1E8qRl-BnZyS4aA",
+          "code_challenge": "B9MyAqeWIJSPKHUlPRKzYVqND7J0kRRR2N5k-nbvsMo",
           "code_challenge_method": "S256"
         },
         "headers": {
@@ -44,6 +44,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/cb"
   }
 }

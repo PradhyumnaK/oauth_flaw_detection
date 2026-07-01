@@ -620,6 +620,20 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
             }
             return save_trace(trace, run)
         stolen_token = STOLEN_REFRESH_TOKENS[(run-1)%len(STOLEN_REFRESH_TOKENS)]
+
+        #Logging a synthetic context step to show where the token originated from
+        trace["steps"].append({
+            "step": "legitimate_session_context",
+            "duration_in_ms": 0,
+            "request": {"method": "N/A", "url": "(prior session)", "data": {}},
+            "response": {
+                "status": None,
+                "note": "Refresh token was originally issued to a legitimate client session"
+                        "and subsequently obtained by an attacker (e.g. via token leakage, XSS,"
+                        "or insecure storage)."
+            },
+        })
+
         attacker_session = make_session()
 
         refresh_data = {
@@ -972,9 +986,9 @@ def main():
         run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
     #Open redirect flow that Keycloak accepts
-    #for run in range(1, 156):
-     #   print(f"Running misconfigured open redirect flow: #{run}")
-      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
+    for run in range(1, 156):
+        print(f"Running misconfigured open redirect flow: #{run}")
+        run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
     
     #PKCE downgrade flows
     for run in range(1, 156):

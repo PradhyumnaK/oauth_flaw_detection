@@ -4,8 +4,21 @@
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
+      "step": "legitimate_session_context",
+      "duration_in_ms": 0,
+      "request": {
+        "method": "N/A",
+        "url": "(prior session)",
+        "data": {}
+      },
+      "response": {
+        "status": null,
+        "note": "Refresh token was originally issued to a legitimate client sessionand subsequently obtained by an attacker (e.g. via token leakage, XSS,or insecure storage)."
+      }
+    },
+    {
       "step": "stolen_refresh_attempt",
-      "duration_in_ms": 24,
+      "duration_in_ms": 26,
       "request": {
         "method": "POST",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/token",
@@ -31,7 +44,7 @@
           "X-Frame-Options": "SAMEORIGIN",
           "X-Robots-Tag": "none"
         },
-        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODEwOTI5NzQsImlhdCI6MTc4MTA5MjkxNCwiYXV0aF90aW1lIjoxNzgxMDkyOTA4LCJqdGkiOiJvbnJ0cnQ6MDc1MDc3MzItM2JjYy1mNDliLWM1NjQtZGJkMzkwMjhjMjU3IiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6Ikt0M0k4SkdpZkdnMkVxLWdDWWdUbTZOcSI"
+        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODI4MjYyODcsImlhdCI6MTc4MjgyNjIyNywiYXV0aF90aW1lIjoxNzgyODI2MjIxLCJqdGkiOiJvbnJ0cnQ6ZDY5NTJjN2QtYTY5OS1hODJjLTk3ODYtZjVhZGUxYmVmYmVlIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6ImthTS1nN25sSk5jWkZnMTVpR0NFYXdsOSI"
       }
     }
   ],

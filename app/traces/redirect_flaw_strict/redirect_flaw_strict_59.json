@@ -2,7 +2,7 @@
   "scenario": "redirect_flaw_strict",
   "run": 59,
   "chosen_scope": "openid email",
-  "user_agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
@@ -13,15 +13,15 @@
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example",
           "scope": "openid email",
-          "state": "cWkippYdKEqctrjTdcnpTQ",
-          "nonce": "jmmezrNyY3uqanCYChm6JA",
-          "code_challenge": "LXdwMLJycP-BFOnCjIIVF_SfZ-WzKwbG1st75NMmWmM",
+          "state": "o3wL0rk6lw9YK8mbME1Vvg",
+          "nonce": "ToaXr-zTlSnOXnhKLag_3A",
+          "code_challenge": "gr6-cYf04RYqR4Hn75FLhnS2NBFpYIfRosF9tWZz4SM",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
         }
       },
       "response": {
@@ -44,6 +44,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example"
   }
 }
