@@ -68,6 +68,17 @@ SCENARIO_DESCRIPTIONS = {
         "client from the attacker, since the token itself is valid.",
 }
 
+SCENARIO_DISPLAY_NAMES = {
+    "normal": "Normal PKCE flow",
+    "no_pkce_accepted": "No PKCE (accepted)",
+    "no_pkce_rejected": "No PKCE (rejected)",
+    "pkce_downgrade": "PKCE downgrade (plain)",
+    "redirect_flaw_strict": "Redirect flaw (strict)",
+    "redirect_flaw_misconfig": "Redirect flaw (misconfigured)",
+    "refresh_misuse_rejected": "Refresh misuse (rejected)",
+    "refresh_misuse_stolen": "Refresh misuse (stolen token)",
+}
+
 oauth = OAuth(app)
 
 keycloak = oauth.register(
@@ -114,7 +125,8 @@ def trace_to_graph(trace, output_path):
         src = steps[i]
         method = src.get("request", {}).get("method", "")
         status = src.get("response", {}).get("status", "")
-        net.add_edge(i, i+1, label=f"{method} {status}", color="#708090", font={"color": "#D31D1D"})
+        status_str = str(status) if status is not None else ""
+        net.add_edge(i, i+1, label=f"{method} {status_str}".strip(), color="#708090", font={"color": "#D31D1D"})
     
     #outcome node at the end
     result = outcome.get("result", "success")
@@ -170,9 +182,13 @@ def list_flows():
     if TRACES_ROOT.exists():
         for d in sorted(TRACES_ROOT.iterdir()):
             if d.is_dir():
+                #Fix: Remove "traces" being printed along with the scenarios
+                json_files = list(d.glob("*.json"))
+                if not json_files:
+                    continue #Skip empty dirs
                 runs = sorted(int(f.stem.split("_")[-1]) for f in d.glob("*.json"))
                 scenarios[d.name] = runs
-    return render_template("flows.html", scenarios=scenarios)
+    return render_template("flows.html", scenarios=scenarios, scenario_display_names=SCENARIO_DISPLAY_NAMES)
 
 @app.route("/flows/<scenario>/<int:run>")
 @login_required
@@ -189,7 +205,8 @@ def show_flow(scenario, run):
                            scenario=scenario, 
                            run=run, 
                            graph_name=f"{scenario}_{run}.html",
-                           scenario_descriptions=SCENARIO_DESCRIPTIONS)
+                           scenario_descriptions=SCENARIO_DESCRIPTIONS,
+                           scenario_display_names=SCENARIO_DISPLAY_NAMES,)
 
 
 if __name__ == "__main__":

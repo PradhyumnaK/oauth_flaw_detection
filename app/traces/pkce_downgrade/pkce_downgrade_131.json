@@ -1,0 +1,41 @@
+{
+  "scenario": "pkce_downgrade",
+  "run": 131,
+  "chosen_scope": "openid email",
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+  "steps": [
+    {
+      "step": "authorization_request",
+      "duration_in_ms": 2069,
+      "request": {
+        "method": "GET",
+        "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
+        "params": {
+          "response_type": "code",
+          "client_id": "testing",
+          "redirect_uri": "http://localhost:4000/callback",
+          "scope": "openid email",
+          "nonce": "pSJVMblGF8Il8a3ArEeBWA",
+          "code_challenge": "LjBZwiR_8u",
+          "code_challenge_method": "S256"
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Server": "BaseHTTP/0.6 Python/3.14.0",
+          "Date": "Tue, 30 Jun 2026 13:25:14 GMT",
+          "Content-Type": "text/plain"
+        },
+        "body_snippet": "Dummy callback"
+      }
+    }
+  ],
+  "outcome": {
+    "result": "no_login_form",
+    "details": "Could not find login form action in Keycloak HTML"
+  }
+}
