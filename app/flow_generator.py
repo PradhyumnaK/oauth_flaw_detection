@@ -37,6 +37,35 @@ CLIENT_ID="testing"
 REDIRECT_URI="http://localhost:4000/callback"
 TRACES_DIR="traces"
 
+#Fix: SHAP shows zero for features x19, 20, 21, 29
+#Header profiles like browser to simulate different client types
+HEADER_PROFILES = [
+    {
+        #Full browser profile (like Chrome and Firefox)
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip,deflate,br",
+        "Connection": "keep-alive",
+        "_is_browser": True,
+    },
+    {
+        #AJAX client: sends X-Requested-With (x32)
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-GB,en;q=0.8",
+        "Accept-Encoding": "gzip,deflate",
+        "Connection": "keep-alive",
+        "_is_browser": True,
+        "X-Requested-With": "XMLHttpRequest",
+    },
+    {
+        #scripted headless client (lesser headers and no language preference)
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip,deflate",
+        "Connection": "close",
+        "_is_browser": False,
+    },
+]
+
 def b64url_no_padding(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
@@ -74,6 +103,18 @@ def timed_request(session: requests.Session, method: str, url: str, ** kwargs) -
         "response": resp,
         "duration_in_ms": duration_in_ms,
     }
+
+def build_headers(user_agent: str) -> dict:
+    """Building a realistic request header set by combining a user agent with random browser
+    header profile. This is to simulate the variation between different client types
+    for signal fingerprinting."""
+    profile = random.choice(HEADER_PROFILES)
+    headers = {"User-Agent": user_agent}
+    #headers.update(random.choice(HEADER_PROFILES))
+    headers.update({k: v for k, v in profile.items() if not k.startswith("_")}) #to strip the flag
+    headers["_is_browser"] = profile["_is_browser"] #internal flag for callers
+    headers["Host"] = urlparse(KEYCLOAK_BASE).netloc #localhost:8080, for host header (x22)
+    return headers
 
 def build_normal_auth_request():
     """
@@ -142,7 +183,8 @@ def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=N
 
     #Choose a random user agent for every flow from the defined user agents
     user_agent = random.choice(USER_AGENTS)
-    default_headers = {"User-Agent": user_agent}
+    default_headers = build_headers(user_agent)
+    default_headers.pop("_is_browser", None) #Removeing internal flag before logging
 
     auth_endpoint, token_endpoint, auth_params, code_verifier = build_auth_fn()
 
@@ -255,9 +297,18 @@ def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=N
 
     #Step 2: Submit credentials (user confirms request) (browser -> AS)
     #Manual cookie header is not needed, session manages cookies automatically
-    login_headers = {
-        "User-Agent": user_agent,
-    }
+    login_headers = build_headers(user_agent)
+    is_browser = login_headers.pop("_is_browser", False)
+    if is_browser:
+        #Real browsers send Origin and Referer on form submission
+        login_headers["Origin"] = "http://localhost:4000"
+        login_headers["Referer"] = (
+            f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+        )
+    #For Cookie (x24)
+    login_headers["Cookie"] = "; ".join(
+        f"{c.name}={c.value}" for c in session.cookies
+    )
     login_rec = timed_request(
         session,
         "POST",
@@ -597,7 +648,8 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     scenario = scenario.lower()
 
     user_agent = random.choice(USER_AGENTS)
-    default_headers = {"User-Agent": user_agent}
+    default_headers = build_headers(user_agent)
+    default_headers.pop("_is_browser", None) #Removeing internal flag before logging
 
     #Scenario: stolen refresh token misuse
     if scenario == "refresh_misuse_stolen":
@@ -788,7 +840,17 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     })
 
     #Step 2:login submit
-    login_headers = {"User-Agent": user_agent}
+    login_headers = build_headers(user_agent)
+    is_browser = login_headers.pop("_is_browser", False)
+    if is_browser:
+        login_headers["Origin"] = "http://localhost:4000"
+        login_headers["Referer"] = (
+            f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+        )
+    #For Cookie (x24)
+    login_headers["Cookie"] = "; ".join(
+        f"{c.name}={c.value}" for c in session.cookies
+    )
     login_rec = timed_request(
         session,
         "POST",
