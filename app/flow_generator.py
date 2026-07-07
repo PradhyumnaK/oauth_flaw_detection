@@ -776,6 +776,42 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     #Storing for pool
     STOLEN_REFRESH_TOKENS.append(refresh_token)
 
+    #Step 5: Attacker replays stolen token in a new session
+    attacker_session = make_session()
+    refresh_data = {"grant_type": "refresh_token", "client_id": CLIENT_ID,
+                    "refresh_token": refresh_token}
+    refresh_rec = timed_request(attacker_session, "POST", token_endpoint, data=refresh_data,
+                                headers=default_headers, allow_redirects=False)
+    refresh_resp = refresh_rec["response"]
+
+    trace["steps"].append({
+        "step": "stolen_refresh_attempt",
+        "duration_in_ms": refresh_rec["duration_in_ms"],
+        "request": {"method": "POST", "url": token_endpoint,
+                    "data": {"grant_type": "refresh_token", "client_id": CLIENT_ID},
+                    "headers": default_headers,
+                    "note": "New attacker session: replaying stolen token, no original cookies"},
+        "response": {"status": refresh_resp.status_code,
+                     "headers": dict(refresh_resp.headers),
+                     "body_snippet": refresh_resp.text[:500]},
+    })
+
+    if refresh_resp.status_code == 200:
+        trace["outcome"] = {
+            "result": "refresh_misuse_accepted",
+            "status": 200,
+            "issue": "stolen_refresh_token_accepted",
+            "reason": "AS issued new tokens using a stolen refresh token, attack not detected",
+        }
+    else:
+        trace["outcome"] = {
+            "result": "stolen_token_rejected",
+            "status": refresh_resp.status_code,
+            "issue": "stolen_refresh_token_rejected",
+            "reason": f"AS rejected stolen token: {refresh_resp.text[:200]}",
+        }
+    return save_trace(trace, run)
+
     #Scenario: refresh misuse rejected by AS
     session = make_session()
     auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
