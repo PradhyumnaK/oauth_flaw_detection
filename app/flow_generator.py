@@ -705,9 +705,7 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     is_browser = login_headers.pop("_is_browser", False)
     if is_browser:
         login_headers["Origin"] = "http://localhost:4000"
-        login_headers["Referer"] = (
-            f"{c.name}={c.value}" for c in session.cookies
-        )
+        login_headers["Referer"] = f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
     
     login_rec = timed_request(session, "POST", login_action,
                               data={"username": USERNAME, "password": PASSWORD},
