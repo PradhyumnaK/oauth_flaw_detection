@@ -653,162 +653,163 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
 
     #Scenario: stolen refresh token misuse
     #Rewriting this case to show both sides, victim and attacker
-    session = make_session()
-    auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
+    if scenario == "refresh_misuse_stolen":
+        session = make_session()
+        auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
 
-    trace = {
-        "scenario": scenario,
-        "run": run,
-        "chosen_scope": auth_params.get("scope"),
-        "user_agent": user_agent,
-        "steps": [],
-        "outcome": {},
-    }
-    #All four steps showing legitimate victim session
-    auth_rec = timed_request(session, "GET", auth_endpoint, params=auth_params,
-                             headers=default_headers, allow_redirects=False)
-    auth_resp = auth_rec["response"]
-
-    if auth_resp.status_code not in (200, 302):
-        trace["outcome"] = {"result": "auth_request_failed", "status": auth_resp.status_code}
-        return save_trace(trace, run)
-    
-    if auth_resp.status_code == 302:
-        lp_rec = timed_request(session, "GET", auth_resp.headers.get("Location"),
-                               headers=default_headers, allow_redirects=False)
-        form_html = lp_rec["response"].text
-        step1_duration = auth_rec["duration_in_ms"] + lp_rec["duration_in_ms"]
-        form_status = lp_rec["response"].status_code
-        form_headers = dict(lp_rec["response"].headers)
-    else:
-        form_html = auth_resp.text
-        step1_duration = auth_rec["duration_in_ms"]
-        form_status = auth_resp.status_code
-        form_headers = dict(auth_resp.headers)
-    
-    try:
-        login_action = get_login_action_url(form_html)
-    except RuntimeError as e:
-        trace["outcome"] = {"result": "no_login_form", "details": str(e)}
-        return save_trace(trace, run)
-    
-    trace["steps"].append({
-        "step": "authorization_request",
-        "duration_in_ms": step1_duration,
-        "request": {"method": "GET", "url": auth_endpoint, "params": auth_params,
-                    "headers": default_headers},
-        "response": {"status": form_status, "headers": form_headers, "login_form_action": login_action},
-        "note": "Legitimate victim session",
-    })
-
-    login_headers = build_headers(user_agent)
-    is_browser = login_headers.pop("_is_browser", False)
-    if is_browser:
-        login_headers["Origin"] = "http://localhost:4000"
-        login_headers["Referer"] = f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
-    
-    login_rec = timed_request(session, "POST", login_action,
-                              data={"username": USERNAME, "password": PASSWORD},
-                              headers=login_headers, allow_redirects=False)
-    login_resp = login_rec["response"]
-    redirect_back = login_resp.headers.get("Location", "")
-
-    trace["steps"].append({
-        "step": "login_submit",
-        "duration_in_ms": login_rec["duration_in_ms"],
-        "request": {"method": "POST", "url": login_action,
-                    "data": {"username": USERNAME, "password": "***"},
-                    "headers": login_headers},
-        "response": {"status": login_resp.status_code,
-                     "headers": dict(login_resp.headers),
-                     "location": redirect_back},
-    })
-
-    if not redirect_back.startswith(REDIRECT_URI):
-        trace["outcome"] = {"result": "login_failed_bad_redirect",
-                            "status": login_resp.status_code}
-        return save_trace(trace, run)
-    
-    try:
-        code = extract_code_from_location(redirect_back)
-    except RuntimeError as e:
-        trace["outcome"] = {"result": "no_code_in_redirect", "details": str(e)}
-        return save_trace(trace, run)
-    
-    trace["steps"].append({
-        "step": "code_received",
-        "redirect_to": redirect_back,
-        "code_present": True,
-    })
-
-    token_data = {"grant_type": "authorization_code", "client_id": CLIENT_ID,
-                  "code": code, "redirect_uri": REDIRECT_URI, "code_verifier": code_verifier}
-    token_rec = timed_request(session, "POST", token_endpoint, data=token_data,
-                              headers=default_headers, allow_redirects=False)
-    token_resp = token_rec["response"]
-
-    trace["steps"].append({
-        "step": "token_exchange",
-        "duration_in_ms": token_rec["duration_in_ms"],
-        "request": {"method": "POST", "url": token_endpoint,
-                    "data": {"grant_type": "authorization_code","client_id": CLIENT_ID,
-                           "redirect_uri": REDIRECT_URI,
-                           "code_verifier_sent": bool(token_data.get("code_verifier"))},
-                    "headers": default_headers},
-        "response": {"status": token_resp.status_code,
-                     "headers": dict(token_resp.headers),
-                     "body_snippet": token_resp.text[:500]},
-    })
-
-    if token_resp.status_code != 200:
-        trace["outcome"] = {"result": "token_error", "status": token_resp.status_code}
-        return save_trace(trace, run)
-    
-    token_json = token_resp.json()
-    refresh_token = token_json.get("refresh_token")
-
-    if not refresh_token:
-        trace["outcome"] = {"result": "no_refresh_token"}
-        return save_trace(trace, run)
-    
-    #Storing for pool
-    STOLEN_REFRESH_TOKENS.append(refresh_token)
-
-    #Step 5: Attacker replays stolen token in a new session
-    attacker_session = make_session()
-    refresh_data = {"grant_type": "refresh_token", "client_id": CLIENT_ID,
-                    "refresh_token": refresh_token}
-    refresh_rec = timed_request(attacker_session, "POST", token_endpoint, data=refresh_data,
-                                headers=default_headers, allow_redirects=False)
-    refresh_resp = refresh_rec["response"]
-
-    trace["steps"].append({
-        "step": "stolen_refresh_attempt",
-        "duration_in_ms": refresh_rec["duration_in_ms"],
-        "request": {"method": "POST", "url": token_endpoint,
-                    "data": {"grant_type": "refresh_token", "client_id": CLIENT_ID},
-                    "headers": default_headers,
-                    "note": "New attacker session: replaying stolen token, no original cookies"},
-        "response": {"status": refresh_resp.status_code,
-                     "headers": dict(refresh_resp.headers),
-                     "body_snippet": refresh_resp.text[:500]},
-    })
-
-    if refresh_resp.status_code == 200:
-        trace["outcome"] = {
-            "result": "refresh_misuse_accepted",
-            "status": 200,
-            "issue": "stolen_refresh_token_accepted",
-            "reason": "AS issued new tokens using a stolen refresh token, attack not detected",
+        trace = {
+            "scenario": scenario,
+            "run": run,
+            "chosen_scope": auth_params.get("scope"),
+            "user_agent": user_agent,
+            "steps": [],
+            "outcome": {},
         }
-    else:
-        trace["outcome"] = {
-            "result": "stolen_token_rejected",
-            "status": refresh_resp.status_code,
-            "issue": "stolen_refresh_token_rejected",
-            "reason": f"AS rejected stolen token: {refresh_resp.text[:200]}",
-        }
-    return save_trace(trace, run)
+        #All four steps showing legitimate victim session
+        auth_rec = timed_request(session, "GET", auth_endpoint, params=auth_params,
+                                 headers=default_headers, allow_redirects=False)
+        auth_resp = auth_rec["response"]
+
+        if auth_resp.status_code not in (200, 302):
+            trace["outcome"] = {"result": "auth_request_failed", "status": auth_resp.status_code}
+            return save_trace(trace, run)
+    
+        if auth_resp.status_code == 302:
+            lp_rec = timed_request(session, "GET", auth_resp.headers.get("Location"),
+                                   headers=default_headers, allow_redirects=False)
+            form_html = lp_rec["response"].text
+            step1_duration = auth_rec["duration_in_ms"] + lp_rec["duration_in_ms"]
+            form_status = lp_rec["response"].status_code
+            form_headers = dict(lp_rec["response"].headers)
+        else:
+            form_html = auth_resp.text
+            step1_duration = auth_rec["duration_in_ms"]
+            form_status = auth_resp.status_code
+            form_headers = dict(auth_resp.headers)
+    
+        try:
+            login_action = get_login_action_url(form_html)
+        except RuntimeError as e:
+            trace["outcome"] = {"result": "no_login_form", "details": str(e)}
+            return save_trace(trace, run)
+    
+        trace["steps"].append({
+            "step": "authorization_request",
+            "duration_in_ms": step1_duration,
+            "request": {"method": "GET", "url": auth_endpoint, "params": auth_params,
+                        "headers": default_headers},
+            "response": {"status": form_status, "headers": form_headers, "login_form_action": login_action},
+            "note": "Legitimate victim session",
+        })
+
+        login_headers = build_headers(user_agent)
+        is_browser = login_headers.pop("_is_browser", False)
+        if is_browser:
+            login_headers["Origin"] = "http://localhost:4000"
+            login_headers["Referer"] = f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+    
+        login_rec = timed_request(session, "POST", login_action,
+                                  data={"username": USERNAME, "password": PASSWORD},
+                                  headers=login_headers, allow_redirects=False)
+        login_resp = login_rec["response"]
+        redirect_back = login_resp.headers.get("Location", "")
+
+        trace["steps"].append({
+            "step": "login_submit",
+            "duration_in_ms": login_rec["duration_in_ms"],
+            "request": {"method": "POST", "url": login_action,
+                        "data": {"username": USERNAME, "password": "***"},
+                        "headers": login_headers},
+            "response": {"status": login_resp.status_code,
+                         "headers": dict(login_resp.headers),
+                         "location": redirect_back},
+        })
+
+        if not redirect_back.startswith(REDIRECT_URI):
+            trace["outcome"] = {"result": "login_failed_bad_redirect",
+                                "status": login_resp.status_code}
+            return save_trace(trace, run)
+    
+        try:
+            code = extract_code_from_location(redirect_back)
+        except RuntimeError as e:
+            trace["outcome"] = {"result": "no_code_in_redirect", "details": str(e)}
+            return save_trace(trace, run)
+    
+        trace["steps"].append({
+            "step": "code_received",
+            "redirect_to": redirect_back,
+            "code_present": True,
+        })
+
+        token_data = {"grant_type": "authorization_code", "client_id": CLIENT_ID,
+                      "code": code, "redirect_uri": REDIRECT_URI, "code_verifier": code_verifier}
+        token_rec = timed_request(session, "POST", token_endpoint, data=token_data,
+                                  headers=default_headers, allow_redirects=False)
+        token_resp = token_rec["response"]
+
+        trace["steps"].append({
+            "step": "token_exchange",
+            "duration_in_ms": token_rec["duration_in_ms"],
+            "request": {"method": "POST", "url": token_endpoint,
+                        "data": {"grant_type": "authorization_code","client_id": CLIENT_ID,
+                                 "redirect_uri": REDIRECT_URI,
+                                 "code_verifier_sent": bool(token_data.get("code_verifier"))},
+                        "headers": default_headers},
+            "response": {"status": token_resp.status_code,
+                         "headers": dict(token_resp.headers),
+                         "body_snippet": token_resp.text[:500]},
+        })
+
+        if token_resp.status_code != 200:
+            trace["outcome"] = {"result": "token_error", "status": token_resp.status_code}
+            return save_trace(trace, run)
+    
+        token_json = token_resp.json()
+        refresh_token = token_json.get("refresh_token")
+
+        if not refresh_token:
+            trace["outcome"] = {"result": "no_refresh_token"}
+            return save_trace(trace, run)
+    
+        #Storing for pool
+        STOLEN_REFRESH_TOKENS.append(refresh_token)
+
+        #Step 5: Attacker replays stolen token in a new session
+        attacker_session = make_session()
+        refresh_data = {"grant_type": "refresh_token", "client_id": CLIENT_ID,
+                        "refresh_token": refresh_token}
+        refresh_rec = timed_request(attacker_session, "POST", token_endpoint, data=refresh_data,
+                                    headers=default_headers, allow_redirects=False)
+        refresh_resp = refresh_rec["response"]
+
+        trace["steps"].append({
+            "step": "stolen_refresh_attempt",
+            "duration_in_ms": refresh_rec["duration_in_ms"],
+            "request": {"method": "POST", "url": token_endpoint,
+                        "data": {"grant_type": "refresh_token", "client_id": CLIENT_ID},
+                        "headers": default_headers,
+                        "note": "New attacker session: replaying stolen token, no original cookies"},
+            "response": {"status": refresh_resp.status_code,
+                         "headers": dict(refresh_resp.headers),
+                         "body_snippet": refresh_resp.text[:500]},
+        })
+
+        if refresh_resp.status_code == 200:
+            trace["outcome"] = {
+                "result": "refresh_misuse_accepted",
+                "status": 200,
+                "issue": "stolen_refresh_token_accepted",
+                "reason": "AS issued new tokens using a stolen refresh token, attack not detected",
+            }
+        else:
+            trace["outcome"] = {
+                "result": "stolen_token_rejected",
+                "status": refresh_resp.status_code,
+                "issue": "stolen_refresh_token_rejected",
+                "reason": f"AS rejected stolen token: {refresh_resp.text[:200]}",
+            }
+        return save_trace(trace, run)
 
     #Scenario: refresh misuse rejected by AS
     session = make_session()
@@ -1108,34 +1109,34 @@ def main():
     strict redirect uri set in the Keycloak admin for the client."""
     
     #Run the normal flow 125 times to create 125 randomized flow traces
-    for run in range(1,156):
-        print(f"Running normal flow: #{run}")
-        run_normal_flow(run=run)
+    #for run in range(1,156):
+     #   print(f"Running normal flow: #{run}")
+      #  run_normal_flow(run=run)
     
-    #Open redirect flow that Keycloak rejects
-    for run in range(1, 156):
-        print(f"Running strict open redirect flow: #{run}")
-        run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
+    #Open redirect flow that Keycloak rejects (strict)
+    #for run in range(1, 156):
+     #   print(f"Running strict open redirect flow: #{run}")
+      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
-    #Open redirect flow that Keycloak accepts
-    for run in range(1, 156):
-        print(f"Running misconfigured open redirect flow: #{run}")
-        run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
+    #Open redirect flow that Keycloak accepts (misconfig with "*")
+    #for run in range(1, 156):
+     #   print(f"Running misconfigured open redirect flow: #{run}")
+      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
     
     #PKCE downgrade flows
-    for run in range(1, 156):
-        print(f"PKCE downgrade flow: #{run}")
-        run_pkce_downgrade(run=run)
+    #for run in range(1, 156):
+     #   print(f"PKCE downgrade flow: #{run}")
+      #  run_pkce_downgrade(run=run)
     
     #No PKCE rejected flows
-    for run in range(1, 156):
-        print(f"Strict No PKCE flow: #{run}")
-        run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
+    #for run in range(1, 156):
+     #   print(f"Strict No PKCE flow: #{run}")
+      #  run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
     
     #No PKCE accepted flows
-    for run in range(1, 156):
-        print(f"Misconfigured No PKCE flow: #{run}")
-        run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
+    #for run in range(1, 156):
+     #   print(f"Misconfigured No PKCE flow: #{run}")
+      #  run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
 
     #Rejected refresh misuse flows
     for run in range(1, 156):
@@ -1143,9 +1144,9 @@ def main():
         run_refresh_misuse_flow(run=run, scenario="refresh_misuse_rejected")
     
     #Refresh misuse token stolen
-    for run in range(1, 156):
-        print(f"Stolen refresh misuse token flow: #{run}")
-        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
+    #for run in range(1, 156):
+     #   print(f"Stolen refresh misuse token flow: #{run}")
+      #  run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
 
 if __name__=="__main__":
     main()

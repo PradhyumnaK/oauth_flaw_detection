@@ -1,27 +1,32 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 46,
-  "chosen_scope": "openid profile",
-  "user_agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+  "chosen_scope": "openid email",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 19,
+      "duration_in_ms": 12,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
-          "scope": "openid profile",
-          "state": "OPVY32XVx7Zf3YzmCxo0mQ",
-          "nonce": "U63TloRwVL8PrnSv6ORrcA",
-          "code_challenge": "tkhbCJIb3nvuG6s7kNwM_yBstYbF3eWEsY2U8Fc7v4c",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example",
+          "scope": "openid email",
+          "state": "uS1_mciT1bMa-H--s5nNRQ",
+          "nonce": "ufh_226JOYwGOsYulKGOUA",
+          "code_challenge": "sOKW-e1yk-1vF2t6cB5IGAvps92kIDy9LWsG5FLCnhY",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip,deflate,br",
+          "Connection": "keep-alive",
+          "Host": "localhost:8080"
         }
       },
       "response": {
@@ -44,6 +49,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example"
   }
 }

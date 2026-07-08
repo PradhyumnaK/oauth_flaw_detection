@@ -1,27 +1,32 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 125,
-  "chosen_scope": "openid",
+  "chosen_scope": "openid email",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 21,
+      "duration_in_ms": 11,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?next=http://evil.example/steal",
-          "scope": "openid",
-          "state": "FgS2Bbn-tGlYxg_g1eldCw",
-          "nonce": "F9kieqRzeOOkBenm-zyZtg",
-          "code_challenge": "xgQNSDm_H8KBU9odQD6Ai7vuAksHjexoiWyIysWmaQ8",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
+          "scope": "openid email",
+          "state": "TQd2vSn8y7Oaxk90AAw0yg",
+          "nonce": "BCVOshjq9TpmUEY1_H5h1A",
+          "code_challenge": "Do8Dnqfxd8Af6yCHRlK928fdgP29ES5J_x3oH8ISeV4",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip,deflate,br",
+          "Connection": "keep-alive",
+          "Host": "localhost:8080"
         }
       },
       "response": {
@@ -44,6 +49,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?next=http://evil.example/steal"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
   }
 }

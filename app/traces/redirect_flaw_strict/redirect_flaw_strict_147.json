@@ -1,12 +1,12 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 147,
-  "chosen_scope": "openid email",
+  "chosen_scope": "openid profile email",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 20,
+      "duration_in_ms": 13,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
@@ -14,19 +14,24 @@
           "response_type": "code",
           "client_id": "testing",
           "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
-          "scope": "openid email",
-          "state": "qvEt9SK2hAMSjIe-vT8t5w",
-          "nonce": "kpUxz-yQvKENSyWrhhqs9g",
-          "code_challenge": "1j8TeXMnjBV1qCscXh3bMl_48a57L_LFqHk_UnNo0vI",
+          "scope": "openid profile email",
+          "state": "LfD-bUT47Ok_gOaf-inD5g",
+          "nonce": "7A4rQUt_tjGHmDj-dBx3pw",
+          "code_challenge": "okEzm4ochYpwcEv20jBAbqaIT1jGAwYzTel4DTZlacs",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
         }
       },
       "response": {
         "status": 400,
         "headers": {
+          "connection": "close",
           "content-length": "3613",
           "Content-Language": "en",
           "Content-Security-Policy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",

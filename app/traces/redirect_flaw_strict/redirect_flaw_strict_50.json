@@ -1,27 +1,32 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 50,
-  "chosen_scope": "openid email",
+  "chosen_scope": "openid",
   "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 33,
+      "duration_in_ms": 10,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
-          "scope": "openid email",
-          "state": "aFJRA-uyx8ISyM7BFl1B_g",
-          "nonce": "nyjMU3s67xnkiT2g5ngslw",
-          "code_challenge": "R8dmze3G0JQ5rLZDajT9d39XJot6-kSWGSw7X-Os9Tk",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4001/callback",
+          "scope": "openid",
+          "state": "CiZLALWud35PXAmlZHxE3g",
+          "nonce": "1fXTQJV-85a0qyicGy7RGg",
+          "code_challenge": "HUT7y3U9Mk3NScYaPh8fyOwJ1POCno4WWMjCv1mseyY",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip,deflate,br",
+          "Connection": "keep-alive",
+          "Host": "localhost:8080"
         }
       },
       "response": {
@@ -44,6 +49,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4001/callback"
   }
 }

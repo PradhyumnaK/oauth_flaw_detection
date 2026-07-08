@@ -1,12 +1,12 @@
 {
   "scenario": "pkce_downgrade",
   "run": 129,
-  "chosen_scope": "openid",
+  "chosen_scope": "openid profile email",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 2048,
+      "duration_in_ms": 2059,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
@@ -14,20 +14,24 @@
           "response_type": "code",
           "client_id": "testing",
           "redirect_uri": "http://localhost:4000/callback",
-          "scope": "openid",
-          "nonce": "3QNUGARuijeDgdHX9sV-RA",
-          "code_challenge": "6vBA_t-9uR",
-          "code_challenge_method": "S256"
+          "scope": "openid profile email",
+          "nonce": "HVi2LS7yBhx2rEhBfAKKpg",
+          "code_challenge": "snJj_daM2lc-mR-W",
+          "code_challenge_method": "plain"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
         }
       },
       "response": {
         "status": 200,
         "headers": {
           "Server": "BaseHTTP/0.6 Python/3.14.0",
-          "Date": "Tue, 30 Jun 2026 13:25:10 GMT",
+          "Date": "Wed, 08 Jul 2026 15:49:56 GMT",
           "Content-Type": "text/plain"
         },
         "body_snippet": "Dummy callback"

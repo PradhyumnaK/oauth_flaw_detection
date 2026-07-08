@@ -183,9 +183,9 @@ def list_flows():
         for d in sorted(TRACES_ROOT.iterdir()):
             if d.is_dir():
                 #Fix: Remove "traces" being printed along with the scenarios
-                json_files = list(d.glob("*.json"))
-                if not json_files:
-                    continue #Skip empty dirs
+                #json_files = list(d.glob("*.json"))
+                #if not json_files:
+                 #   continue #Skip empty dirs
                 runs = sorted(int(f.stem.split("_")[-1]) for f in d.glob("*.json"))
                 scenarios[d.name] = runs
     return render_template("flows.html", scenarios=scenarios, scenario_display_names=SCENARIO_DISPLAY_NAMES)
