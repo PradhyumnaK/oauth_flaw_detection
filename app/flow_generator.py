@@ -1109,34 +1109,34 @@ def main():
     strict redirect uri set in the Keycloak admin for the client."""
     
     #Run the normal flow 125 times to create 125 randomized flow traces
-    #for run in range(1,156):
-     #   print(f"Running normal flow: #{run}")
-      #  run_normal_flow(run=run)
+    for run in range(1,156):
+        print(f"Running normal flow: #{run}")
+        run_normal_flow(run=run)
     
     #Open redirect flow that Keycloak rejects (strict)
-    #for run in range(1, 156):
-     #   print(f"Running strict open redirect flow: #{run}")
-      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
+    for run in range(1, 156):
+        print(f"Running strict open redirect flow: #{run}")
+        run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
     #Open redirect flow that Keycloak accepts (misconfig with "*")
-    #for run in range(1, 156):
-     #   print(f"Running misconfigured open redirect flow: #{run}")
-      #  run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
+    for run in range(1, 156):
+        print(f"Running misconfigured open redirect flow: #{run}")
+        run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
     
     #PKCE downgrade flows
-    #for run in range(1, 156):
-     #   print(f"PKCE downgrade flow: #{run}")
-      #  run_pkce_downgrade(run=run)
+    for run in range(1, 156):
+        print(f"PKCE downgrade flow: #{run}")
+        run_pkce_downgrade(run=run)
     
     #No PKCE rejected flows
-    #for run in range(1, 156):
-     #   print(f"Strict No PKCE flow: #{run}")
-      #  run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
+    for run in range(1, 156):
+        print(f"Strict No PKCE flow: #{run}")
+        run_no_pkce_flow(run=run, scenario = "no_pkce_rejected")
     
     #No PKCE accepted flows
-    #for run in range(1, 156):
-     #   print(f"Misconfigured No PKCE flow: #{run}")
-      #  run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
+    for run in range(1, 156):
+        print(f"Misconfigured No PKCE flow: #{run}")
+        run_no_pkce_flow(run=run, scenario = "no_pkce_accepted")
 
     #Rejected refresh misuse flows
     for run in range(1, 156):
@@ -1144,9 +1144,9 @@ def main():
         run_refresh_misuse_flow(run=run, scenario="refresh_misuse_rejected")
     
     #Refresh misuse token stolen
-    #for run in range(1, 156):
-     #   print(f"Stolen refresh misuse token flow: #{run}")
-      #  run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
+    for run in range(1, 156):
+        print(f"Stolen refresh misuse token flow: #{run}")
+        run_refresh_misuse_flow(run=run, scenario="refresh_misuse_stolen")
 
 if __name__=="__main__":
     main()

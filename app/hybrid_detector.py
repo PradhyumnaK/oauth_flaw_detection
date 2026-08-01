@@ -59,6 +59,9 @@ def load_models():
     return joblib.load(GBC_RULES_PATH), joblib.load(GBC_FULL_PATH)
 
 def hybrid_predict(X_rules, X_full, gbc_rules=None, gbc_full=None):
+    """Weighted ensemble: 0.4*gbc_rules + 0.6*gbc_full.
+    Combines rule-based signal for known flaw patterns with
+    full feature ML signal for ambiguous cases."""
     if gbc_rules is None or gbc_full is None:
         gbc_rules, gbc_full = load_models()
     X_rules = X_rules.apply(pd.to_numeric, errors="raise")

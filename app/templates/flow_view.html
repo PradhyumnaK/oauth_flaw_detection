@@ -1,16 +1,86 @@
 <!DOCTYPE html>
 <html>
-    <head><title>Flow {{scenario}} #{{run}}</title></head>
+    <head>
+        <title>Flow {{scenario}} #{{run}}</title>
+        <style>
+            body{
+                background-image: url("{{url_for('static', filename='login-bg.jpg')}}");
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-position: center;
+                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                background-color: white;
+                color: #222222;
+                margin: 0;
+                padding: 0;
+            }
+            .page{
+                max-width: 960px;
+                margin: 40px auto;
+                padding: 0 16px;
+            }
+            h2{
+                margin-top: 0;
+                font-size: 1.5rem;
+            }
+            a{
+                color: #0056b3;
+                text-decoration: none;
+            }
+            a:hover{
+                text-decoration: underline;
+            }
+            .description{
+                max-width: 700px;
+                margin-top: 12px;
+                color: #334155;
+            }
+            .outcome-mismatch{
+                max-width: 700px;
+                margin-top: 12px;
+                padding: 10px 14px;
+                background-color: #fff3cd;
+                border: 1px solid #ffe08a;
+                border-radius: 4px;
+                color: #664d03;
+                font-size: 0.9rem;
+            }
+            .outcome-mismatch code{
+                background-color: #fce8b0;
+                padding: 1px 5px;
+                border-radius: 3px;
+            }
+            .graph-wrap{
+                margin-top: 20px;
+            }
+            iframe{
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
     <body>
-        <h2>{{scenario_display_names.get(scenario, scenario)}}: Run {{run}}</h2>
-        <a href="/flows">Back</a>
-        <p style="max-width: 700px; margin-top: 12px; color:#334155;">
-            {{scenario_descriptions.get(scenario, "No description available for this scenario.")}}
-        <div style="margin-top: 20px;">
-            <iframe src="{{url_for('static', filename='graphs/' + graph_name)}}"
-                    width="100%" height="560"
-                    style="border:none">
-            </iframe>
+        <div class="page">
+            <h2>{{scenario_display_names.get(scenario, scenario)}}: Run {{run}}</h2>
+            <a href="/flows">Back</a>
+
+            {%if is_expected_outcome%}
+                <p class="description">
+                     {{scenario_descriptions.get(scenario, "No description available for this scenario.")}}
+                </p>
+            {%else%}
+                <div class="outcome-mismatch">
+                    <strong>This run did not produce the scenario's typical outcome.</strong><br>
+                    Actual result: <code>{{outcome.get("result", "unknown")}}</code>
+                    {%if outcome.get("reason")%} - {{outcome.get("reason")}}{%endif%}
+                </div>
+            {%endif%}
+
+            <div class="graph-wrap">
+                <iframe src="{{url_for('static', filename='graphs/' + graph_name)}}"
+                        width="100%" height="560">
+                </iframe>
+            </div>
         </div>
     </body>
 </html>

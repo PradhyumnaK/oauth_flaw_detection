@@ -34,7 +34,7 @@
              #mynetwork {
                  width: 100%;
                  height: 500px;
-                 background-color: #000000;
+                 background-color: rgba(255,255,255,0);
                  border: 1px solid lightgray;
                  position: relative;
                  float: left;
@@ -88,8 +88,8 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#008000", "font": {"color": "#d3d3d3"}, "id": 0, "label": "authorization_request", "shape": "dot", "title": "authorization_request status "}, {"color": "#008000", "font": {"color": "#d3d3d3"}, "id": 1, "label": "login_submit\n[302]", "shape": "dot", "title": "login_submit status 302"}, {"color": "#008000", "font": {"color": "#d3d3d3"}, "id": 2, "label": "code_received", "shape": "dot", "title": "code_received status "}, {"color": "#008000", "font": {"color": "#d3d3d3"}, "id": 3, "label": "token_exchange\n[200]", "shape": "dot", "title": "token_exchange status 200"}, {"color": "#ff0000", "font": {"color": "#d3d3d3"}, "id": 4, "label": "refresh_misuse_wrong_client\n[401]", "shape": "dot", "title": "refresh_misuse_wrong_client status 401"}, {"color": "#ff0000", "font": {"color": "#d3d3d3"}, "id": 5, "label": "OUTCOME\nrefresh_misuse_rejected", "shape": "ellipse", "title": "Client used refresh token with incorrect client id"}]);
-                  edges = new vis.DataSet([{"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 0, "label": "GET", "to": 1}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 1, "label": "POST 302", "to": 2}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 2, "label": "", "to": 3}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 3, "label": "POST 200", "to": 4}, {"arrows": "to", "color": "#708090", "from": 4, "to": 5}]);
+                  nodes = new vis.DataSet([{"color": "#008000", "font": {"color": "#000000"}, "id": 0, "label": "authorization_request\n[200]", "shape": "dot", "title": "authorization_request status 200"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 1, "label": "login_submit\n[302]", "shape": "dot", "title": "login_submit status 302"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 2, "label": "code_received", "shape": "dot", "title": "code_received status "}, {"color": "#ff0000", "font": {"color": "#000000"}, "id": 3, "label": "token_exchange\n[400]", "shape": "dot", "title": "token_exchange status 400"}, {"color": "#ff0000", "font": {"color": "#000000"}, "id": 4, "label": "OUTCOME\ntoken_error", "shape": "ellipse", "title": "Token endpoint did not return 200 for authorization_code request"}]);
+                  edges = new vis.DataSet([{"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 0, "label": "GET 200", "to": 1}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 1, "label": "POST 302", "to": 2}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 2, "label": "", "to": 3}, {"arrows": "to", "color": "#708090", "from": 3, "to": 4}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
