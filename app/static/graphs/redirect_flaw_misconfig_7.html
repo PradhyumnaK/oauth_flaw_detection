@@ -1,5 +1,5 @@
 <html>
-    <head>
+    <style>html, body, .card, card-body, #mynetwork{background-color:transparent !important;box-shadow: none !important}.card{background-color: transparent !important;border: 1px solid #000000 !important;box-shadow: none !important;}body{margin: 0;}</style></head>
         <meta charset="utf-8">
         
             <script src="lib/bindings/utils.js"></script>
@@ -33,8 +33,8 @@
 
              #mynetwork {
                  width: 100%;
-                 height: 490px;
-                 background-color: #ffffff;
+                 height: 400px;
+                 background-color: transparent;
                  border: 1px solid lightgray;
                  position: relative;
                  float: left;
@@ -88,7 +88,7 @@
                   
 
                   // parsing and collecting nodes and edges from the python
-                  nodes = new vis.DataSet([{"color": "#008000", "font": {"color": "#000000"}, "id": 0, "label": "authorization_request\n[200]", "shape": "dot", "title": "authorization_request status 200"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 1, "label": "login_submit\n[302]", "shape": "dot", "title": "login_submit status 302"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 2, "label": "code_received", "shape": "dot", "title": "code_received status "}, {"color": "#008000", "font": {"color": "#000000"}, "id": 3, "label": "token_exchange\n[200]", "shape": "dot", "title": "token_exchange status 200"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 4, "label": "OUTCOME\nsuccess", "shape": "ellipse", "title": "Tokens successfully issued for normal flow"}]);
+                  nodes = new vis.DataSet([{"color": "#008000", "font": {"color": "#000000"}, "id": 0, "label": "authorization_request\n[200]", "shape": "dot", "title": "authorization_request status 200"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 1, "label": "login_submit\n[302]", "shape": "dot", "title": "login_submit status 302"}, {"color": "#008000", "font": {"color": "#000000"}, "id": 2, "label": "code_received", "shape": "dot", "title": "code_received status "}, {"color": "#ff0000", "font": {"color": "#000000"}, "id": 3, "label": "token_exchange\n[400]", "shape": "dot", "title": "token_exchange status 400"}, {"color": "#ff0000", "font": {"color": "#000000"}, "id": 4, "label": "OUTCOME\ncode_issued_to_malicious_redirect", "shape": "ellipse", "title": "Authorization code was delivered to attacker URI: http://localhost:4000/callbackhttp://localhost:4000/callback?r=http://evil.example/cb\u0026state=s9eySHE6PI7pdBCTlvcDkQ\u0026session_state=3p_vl9pyHgjzIGoGrwuF6H-f\u0026iss=http%3A%2F%2Flocalhost%3A8080%2Frealms%2Fmaster\u0026code=bcae77d0-078d-702c-321c-3bc222ecb65e.3p_vl9pyHgjzIGoGrwuF6H-f.215d11bb-f31f-4cd8-a325-d9fba220b65f"}]);
                   edges = new vis.DataSet([{"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 0, "label": "GET 200", "to": 1}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 1, "label": "POST 302", "to": 2}, {"arrows": "to", "color": "#708090", "font": {"color": "#D31D1D"}, "from": 2, "label": "", "to": 3}, {"arrows": "to", "color": "#708090", "from": 3, "to": 4}]);
 
                   nodeColors = {};

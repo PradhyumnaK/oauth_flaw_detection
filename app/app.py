@@ -107,7 +107,7 @@ def login_required(f):
 
 def trace_to_graph(trace, output_path):
     """Convert a trace JSON into an interactive graph and save it"""
-    net = Network(height="400px", width="100%", directed=True, bgcolor="#ffffff", font_color="#000000")
+    net = Network(height="400px", width="100%", directed=True, bgcolor="transparent", font_color="#000000")
     
     outcome = trace.get("outcome", {})
     is_flaw = outcome.get("result", "success") != "success"
@@ -144,7 +144,7 @@ def trace_to_graph(trace, output_path):
                  label=f"OUTCOME\n{result}",
                  color="#008000" if not is_flaw else "#ff0000",
                  shape="ellipse",
-                 title=outcome.get("reason", ""))
+                 title=outcome.get("reason", "") or outcome.get("details") or result)
     
     if steps:
         net.add_edge(len(steps) - 1, len(steps), color="#708090")
@@ -158,11 +158,29 @@ def trace_to_graph(trace, output_path):
     """)
     net.save_graph(str(output_path))
 
+    html_content = output_path.read_text(encoding="utf-8")
+    html_content = html_content.replace(
+        "<head>",
+        "<style>"
+        "html, body, .card, card-body, #mynetwork{"
+        "background-color:transparent !important;"
+        "box-shadow: none !important"
+        "}"
+        ".card{"
+        "background-color: transparent !important;"
+        "border: 1px solid #000000 !important;"
+        "box-shadow: none !important;"
+        "}"
+        "body{margin: 0;}"
+        "</style></head>"
+    )
+    output_path.write_text(html_content, encoding="utf-8")
+
 @app.route("/")
 def home():
     if not session.get("logged_in"):
         return render_template("login.html")
-    return render_template("home.html", user=session.get("user"))
+    return render_template("home.html")
 
 @app.route("/login")
 def login():
