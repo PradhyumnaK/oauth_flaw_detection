@@ -84,8 +84,9 @@ EXPECTED_OUTCOMES = {
     "no_pkce_accepted": "success",
     "no_pkce_rejected": "token_error",
     "pkce_downgrade": "success",
-    "redirect_flaw_strict": "redirect_uri_rejected",
+    "redirect_flaw_strict": "redirect_uri_rejection",
     "redirect_flaw_misconfig": "code_issued_to_malicious_redirect",
+    "refresh_misuse_rejected": "refresh_misuse_rejected",
     "refresh_misuse_stolen": "refresh_misuse_accepted",
 }
 
