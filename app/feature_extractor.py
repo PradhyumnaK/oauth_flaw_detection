@@ -22,12 +22,16 @@ LABEL_MAP = {
 }
 
 def step(trace, name):
+    """Return the first step matching name, or empty dict."""
     return next((s for s in trace.get("steps", []) if s.get("step") == name), {})
 
 def headers(s, part):
+    """Extract headers from a step's request or response."""
     return s.get(part, {}).get("headers", {})
 
 def has(headers, name):
+    """Return 1 if header present (case insensitive), 0 otherwise.
+    HTTP headers are case insensitive as per RFC 7230."""
     return int(any(k.lower() == name.lower() for k in headers))
 
 def extract(trace):
@@ -88,12 +92,17 @@ def extract(trace):
         "x30": len({s.get("request", {}).get("method") for s in trace.get("steps", [])} - {None}),
         "x31": has(th, "Referrer-Policy"),
         "x32": has(ah, "X-Requested-With"),
+        #RFC 9700 S4.5.3: nonce present in authorization request
         "x33": int(bool(ap.get("nonce"))),
+        #RFC 9700 S2.1.1: S256 is the required PKCE method
         "x34": int(ap.get("code_challenge_method") == "S256"),
+        #RFC 9700 S4.4: iss parameter in redirect prevents authorization server mix-up
         "x35": int("iss" in (code_rcvd.get("redirect_to") or "")),
+        #RFC 9700 S4.1.3: exact redirect URI match without query suffix
         "x36": int(ap.get("redirect_uri", "").split("?")[0] == REDIRECT_URI),
+        #RFC 9700 S4.13: refresh token misuse step present
         "x37": int(bool(step(trace, "refresh_misuse"))),
-        #x38: code_verifier sent in token exchange (distinguishes no_pkce_accepted from rejected)
+        #RFC 9700 S2.1.1: code_verifier sent at token exchange
         "x38": int(bool(tok_req_data.get("code_verifier_sent", False))),
         "label": LABEL_MAP.get(trace.get("scenario", ""), -1),
     }

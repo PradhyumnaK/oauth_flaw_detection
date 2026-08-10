@@ -70,6 +70,8 @@ def b64url_no_padding(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 def pkce_pair():
+    """Generate a PKCE code_verifier and S256 code_challenge pair.
+    Returns (verifier, challenge) as base64url strings."""
     verifier=b64url_no_padding(secrets.token_bytes(32))
     digest=hashlib.sha256(verifier.encode("ascii")).digest()
     challenge=b64url_no_padding(digest)
@@ -168,6 +170,8 @@ class AllowSecureOnHTTP(http.cookiejar.DefaultCookiePolicy):
         return super().return_ok(cookie, request)
     
 def make_session() -> requests.Session:
+    """Create a requests.Session that correctly handles Keycloak
+    Secure cookies over plain HTTP localhost."""
     session = requests.Session()
     session.cookies.set_policy(AllowSecureOnHTTP())
     return session
