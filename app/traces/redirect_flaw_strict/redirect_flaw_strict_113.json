@@ -1,12 +1,12 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 113,
-  "chosen_scope": "openid profile",
+  "chosen_scope": "openid",
   "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 20,
+      "duration_in_ms": 11,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
@@ -14,19 +14,24 @@
           "response_type": "code",
           "client_id": "testing",
           "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
-          "scope": "openid profile",
-          "state": "GphwB_arhAMs7PjTc24oQQ",
-          "nonce": "bCQJ1-jXAXs3jMeabIkyaA",
-          "code_challenge": "un4UR_nE3t8NDhz9vyCACGGS3su-KXOJYMCT__5rfnI",
+          "scope": "openid",
+          "state": "mj4kfniyqqubhKKI1j4BkQ",
+          "nonce": "CRfqvRRy7A9U3ljPV5DP7w",
+          "code_challenge": "M__2DJaPNONtkaDbAbWTqf8RYKyOIEdV-6Rc5Eq1bGA",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
         }
       },
       "response": {
         "status": 400,
         "headers": {
+          "connection": "close",
           "content-length": "3613",
           "Content-Language": "en",
           "Content-Security-Policy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",

@@ -6,27 +6,32 @@
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 16,
+      "duration_in_ms": 12,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?r=http://evil.example/cb",
           "scope": "openid email",
-          "state": "-S_REjbV_nZH3G2Dy-FChw",
-          "nonce": "DqAYeCV7XaDuv2RMKWe4Bw",
-          "code_challenge": "VobseT7sTdqs1Y29kfzmeAWTPMZIGzQXTk_KutuJ_Ks",
+          "state": "Q0At4qaaUaABP1yqsmM3Bg",
+          "nonce": "p_zbRh5zltuoszNT02y9Xg",
+          "code_challenge": "zjj3UIFN3FSfV3WJZb5bMc5QOwDV-yldBG5meC9JpWo",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
         }
       },
       "response": {
         "status": 400,
         "headers": {
+          "connection": "close",
           "content-length": "3613",
           "Content-Language": "en",
           "Content-Security-Policy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
@@ -44,6 +49,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?r=http://evil.example/cb"
   }
 }

@@ -1,27 +1,32 @@
 {
   "scenario": "redirect_flaw_strict",
   "run": 108,
-  "chosen_scope": "openid email",
+  "chosen_scope": "openid",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
   "steps": [
     {
       "step": "authorization_request",
-      "duration_in_ms": 22,
+      "duration_in_ms": 10,
       "request": {
         "method": "GET",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
         "params": {
           "response_type": "code",
           "client_id": "testing",
-          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback/extra",
-          "scope": "openid email",
-          "state": "Ezsu1Bxh9W4a_VvedBLfIA",
-          "nonce": "FC-Oujzy9G57u2nK3-o0CA",
-          "code_challenge": "-jg3C6ZvZdnCX4cOopHg-uWQqnufVb-U1m7uVmwrkQQ",
+          "redirect_uri": "http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example",
+          "scope": "openid",
+          "state": "r9O0TzADG3ch4L3BzNtnSw",
+          "nonce": "FtWlLVWnBoD1HFWgKanMaQ",
+          "code_challenge": "b27aIXGXThhyfJT5KUQL8rBx_-aS3WkWsjHBZtWVjNM",
           "code_challenge_method": "S256"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0"
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/134.0.0.0",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Accept-Encoding": "gzip,deflate,br",
+          "Connection": "keep-alive",
+          "Host": "localhost:8080"
         }
       },
       "response": {
@@ -44,6 +49,6 @@
     "result": "redirect_uri_rejection",
     "status": 400,
     "issue": "unregistered_redirect_uri",
-    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback/extra"
+    "reason": "AS rejected redirect_uri not matching registered value: http://localhost:4000/callbackhttp://localhost:4000/callback?url=//evil.example"
   }
 }

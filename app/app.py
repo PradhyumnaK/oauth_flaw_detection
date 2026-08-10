@@ -79,6 +79,17 @@ SCENARIO_DISPLAY_NAMES = {
     "refresh_misuse_stolen": "Refresh misuse (stolen token)",
 }
 
+EXPECTED_OUTCOMES = {
+    "normal": "success",
+    "no_pkce_accepted": "success",
+    "no_pkce_rejected": "token_error",
+    "pkce_downgrade": "success",
+    "redirect_flaw_strict": "redirect_uri_rejection",
+    "redirect_flaw_misconfig": "code_issued_to_malicious_redirect",
+    "refresh_misuse_rejected": "refresh_misuse_rejected",
+    "refresh_misuse_stolen": "refresh_misuse_accepted",
+}
+
 oauth = OAuth(app)
 
 keycloak = oauth.register(
@@ -97,7 +108,7 @@ def login_required(f):
 
 def trace_to_graph(trace, output_path):
     """Convert a trace JSON into an interactive graph and save it"""
-    net = Network(height="500px", width="100%", directed=True, bgcolor="#000000", font_color="#d3d3d3")
+    net = Network(height="400px", width="100%", directed=True, bgcolor="transparent", font_color="#000000")
     
     outcome = trace.get("outcome", {})
     is_flaw = outcome.get("result", "success") != "success"
@@ -134,7 +145,7 @@ def trace_to_graph(trace, output_path):
                  label=f"OUTCOME\n{result}",
                  color="#008000" if not is_flaw else "#ff0000",
                  shape="ellipse",
-                 title=outcome.get("reason", ""))
+                 title=outcome.get("reason", "") or outcome.get("details") or result)
     
     if steps:
         net.add_edge(len(steps) - 1, len(steps), color="#708090")
@@ -148,11 +159,29 @@ def trace_to_graph(trace, output_path):
     """)
     net.save_graph(str(output_path))
 
+    html_content = output_path.read_text(encoding="utf-8")
+    html_content = html_content.replace(
+        "<head>",
+        "<style>"
+        "html, body, .card, card-body, #mynetwork{"
+        "background-color:transparent !important;"
+        "box-shadow: none !important"
+        "}"
+        ".card{"
+        "background-color: transparent !important;"
+        "border: 1px solid #000000 !important;"
+        "box-shadow: none !important;"
+        "}"
+        "body{margin: 0;}"
+        "</style></head>"
+    )
+    output_path.write_text(html_content, encoding="utf-8")
+
 @app.route("/")
 def home():
     if not session.get("logged_in"):
         return render_template("login.html")
-    return render_template("home.html", user=session.get("user"))
+    return render_template("home.html")
 
 @app.route("/login")
 def login():
@@ -183,9 +212,9 @@ def list_flows():
         for d in sorted(TRACES_ROOT.iterdir()):
             if d.is_dir():
                 #Fix: Remove "traces" being printed along with the scenarios
-                json_files = list(d.glob("*.json"))
-                if not json_files:
-                    continue #Skip empty dirs
+                #json_files = list(d.glob("*.json"))
+                #if not json_files:
+                 #   continue #Skip empty dirs
                 runs = sorted(int(f.stem.split("_")[-1]) for f in d.glob("*.json"))
                 scenarios[d.name] = runs
     return render_template("flows.html", scenarios=scenarios, scenario_display_names=SCENARIO_DISPLAY_NAMES)
@@ -196,17 +225,22 @@ def show_flow(scenario, run):
     trace_path = TRACES_ROOT / scenario / f"{scenario}_{run}.json"
     if not trace_path.exists():
         abort(404)
-    
+
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
     graph_path = GRAPHS_DIR / f"{scenario}_{run}.html"
     if not graph_path.exists():
-        trace_to_graph(json.loads(trace_path.read_text(encoding="utf-8")), graph_path)
-    
+        trace_to_graph(trace, graph_path)
+
+    outcome = trace.get("outcome", {})
+    is_expected_outcome = outcome.get("result") == EXPECTED_OUTCOMES.get(scenario)
     return render_template("flow_view.html", 
                            scenario=scenario, 
                            run=run, 
                            graph_name=f"{scenario}_{run}.html",
                            scenario_descriptions=SCENARIO_DESCRIPTIONS,
-                           scenario_display_names=SCENARIO_DISPLAY_NAMES,)
+                           scenario_display_names=SCENARIO_DISPLAY_NAMES,
+                           outcome=outcome,
+                           is_expected_outcome=is_expected_outcome,)
 
 
 if __name__ == "__main__":

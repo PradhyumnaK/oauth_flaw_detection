@@ -1,7 +1,7 @@
 """hybrid_detector.py
-Hybrid OAuth/OIDC detector:
--Rule fires (if rule sum > 0): use gbc rules prediction
--Rule silent (if rule sum is 0): defer to gbc full prediction"""
+Hybrid OAuth/OIDC detector: weighted ensemble.
+Combines GBC_rules and GBC_full class probability distributions as
+0.4 * P(rules) + 0.6 * P(full), then takes the argmax class."""
 
 from pathlib import Path
 from typing import Tuple, List
@@ -35,7 +35,7 @@ def load_rule_features(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("No rule columns found in merged_dataset.csv")
     return df[rule_columns]
 
-def load_dull_features(df):
+def load_full_features(df):
     columns = [c for c in df.columns if c.startswith("x")]
     if not columns:
         raise ValueError("No x feature columns found")
@@ -48,7 +48,7 @@ def load_hybrid_components() -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, 
     df["run"] = df["run"].astype(int)
 
     X_rules = load_rule_features(df)
-    x_full = load_dull_features(df)
+    x_full = load_full_features(df)
     y_true = df["label"].to_numpy()
     return df, X_rules, x_full, y_true
 
@@ -59,6 +59,9 @@ def load_models():
     return joblib.load(GBC_RULES_PATH), joblib.load(GBC_FULL_PATH)
 
 def hybrid_predict(X_rules, X_full, gbc_rules=None, gbc_full=None):
+    """Weighted ensemble: 0.4*gbc_rules + 0.6*gbc_full.
+    Combines rule-based signal for known flaw patterns with
+    full feature ML signal for ambiguous cases."""
     if gbc_rules is None or gbc_full is None:
         gbc_rules, gbc_full = load_models()
     X_rules = X_rules.apply(pd.to_numeric, errors="raise")
@@ -72,6 +75,7 @@ def hybrid_predict(X_rules, X_full, gbc_rules=None, gbc_full=None):
     return np.argmax(combined, axis=1)
 
 def hybrid_predict_proba(X_rules, X_full, gbc_rules=None, gbc_full=None):
+    """Return weighted combined probability matrix (Nx8)."""
     if gbc_rules is None or gbc_full is None:
         gbc_rules, gbc_full = load_models()
     X_rules = X_rules.apply(pd.to_numeric, errors="raise")

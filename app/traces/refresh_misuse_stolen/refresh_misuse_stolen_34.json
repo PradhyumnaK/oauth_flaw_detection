@@ -1,24 +1,137 @@
 {
   "scenario": "refresh_misuse_stolen",
   "run": 34,
-  "user_agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1",
+  "chosen_scope": "openid profile",
+  "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
   "steps": [
     {
-      "step": "legitimate_session_context",
-      "duration_in_ms": 0,
+      "step": "authorization_request",
+      "duration_in_ms": 17,
       "request": {
-        "method": "N/A",
-        "url": "(prior session)",
-        "data": {}
+        "method": "GET",
+        "url": "http://localhost:8080/realms/master/protocol/openid-connect/auth",
+        "params": {
+          "response_type": "code",
+          "client_id": "testing",
+          "redirect_uri": "http://localhost:4000/callback",
+          "scope": "openid profile",
+          "state": "fYun7EF81MqrVtQ2vGqDDQ",
+          "nonce": "MEZOO6Tm5Ols_Arrq4Uh7g",
+          "code_challenge": "CAFWiknEtHuI6H-uAJWX3xqqlJJGzOl4pwUhECmIHAs",
+          "code_challenge_method": "S256"
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
+        }
       },
       "response": {
-        "status": null,
-        "note": "Refresh token was originally issued to a legitimate client sessionand subsequently obtained by an attacker (e.g. via token leakage, XSS,or insecure storage)."
+        "status": 200,
+        "headers": {
+          "Set-Cookie": "AUTH_SESSION_ID=OC1BX2toV0NVNDJXMFkzZTlWSXFNYXhwLk05aUp3Smw0MmYtRFVmdGw0VmVDeERVRFNsZUJMckJEMy1KaWZSV3N1elY1cWV2WUhhdEQ0RGRUVVJwZVhNb1cteFJQR1cxM2NfQy1JQXAxTTNmanVR;Version=1;Path=/realms/master/;HttpOnly;SameSite=Lax, KC_AUTH_SESSION_HASH=gQpyN77AivacxuqWpLA7ebPySkVRo9XdZsStOzWQAUw;Version=1;Path=/realms/master/;Max-Age=60;SameSite=Lax, KC_RESTART=eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..Ua0RPEmjW29RcpeTi0vqxA.q_3eGiyQPiR3vqJFOxjkpI-gdyK1xvwwLTcXj9NO_InFf_08m-MSIjCJ-OmGCtTc7xK_DQiAm39UWAfyIlnZZaOhgPRI9MYanXylT4jojQooa0fzkXz4IkxPF13lMG9xSQqEcyYbK9lNpWA5OW_KDvX0KlzsXktE98yDA6ps4BtWHIDGZYqzQd4DPfiomQvG32LuCRqRudxl11Wing-NyERibN35_zYPnNq83Sbu8-b4jRZ75CUnViVNntSY18C7XhW93_XUsj4bglFXxVVnYHxLiwzVFT61qIvAGr6DXemdGLtDqIuaPjKRluyvafZjJMXBgCv6zbL-1E4Ioa4M3ioPexKZCmvWfKEzBhzhUzgIxFPf5ynBtnajm1YjeEYVw7QFI5COS9sUmOTFAO1vOaI6FJ3_2cC_CT7aHHSgBW1l8YBuB64Kfhx1RdajoOnC1auEP_8KFzzFv8glN7-2VyIavOs3ERYgmrEvFRdKkQ9ZcQW7lII8_8eldlaOeSsxaZLOPx30cPgfROALJir7A38BW4NDsYEGqJ2FKPbLe16vJi5RdoLKtheN1K2rOrwTW5ifvX0_ZxLtkhHlWxBITa_8__o6Et8qc6051FV2wGKolsUbSFklPRVLb0yeVNloVc1d9-yL5_J4lzef4WhL8xlYAHlLq5e9BCvHF-Jx2TZSH3V38i2T7Zpp3kU5x07F1Nh_z2nrkKUXEln6rmiSfOtc9fAmT2IYMrKKhlzYd7rJcDzNqcpBmFj9iVwmWap-lNrj_tjG4mS93Sp9z6gJg3CVsSXO9zF252_BpHyFeD9rcqm6kblZOv4CtbSY-Wyg4j7tNXg-BP3B7qOV76cbPVaSSvS2tiipAUEFzNUHqI_LjmTJ0rbApWGUSATO1FarG4hQ1KEEuaH32hVvHzd9ubDn4S4UHKHnYaWZh733NrBmwiRWQbiD9iE-ezXQuNzTAXG_2khrIR3QpNaIDZG5LfrtaoBh5y8V0U8Q3giCI5U.OYjeP13wXDrgS3pa1SvriA;Version=1;Path=/realms/master/;HttpOnly;SameSite=Lax",
+          "Cache-Control": "no-store, must-revalidate, max-age=0",
+          "connection": "close",
+          "content-length": "6865",
+          "Content-Language": "en",
+          "Content-Security-Policy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+          "Content-Type": "text/html;charset=utf-8",
+          "Referrer-Policy": "no-referrer",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Robots-Tag": "none"
+        },
+        "login_form_action": "http://localhost:8080/realms/master/login-actions/authenticate?session_code=MThgHKaVaiH72tY3WES47dDQUgbvSZwRH25ahnG1hxs&execution=43e5fbf8-8b18-49c3-a086-7bf4e6a198ed&client_id=testing&tab_id=QRj5ydMeTrA&client_data=eyJydSI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDAwMC9jYWxsYmFjayIsInJ0IjoiY29kZSIsInN0IjoiZll1bjdFRjgxTXFyVnRRMnZHcUREUSJ9"
+      },
+      "note": "Legitimate victim session"
+    },
+    {
+      "step": "login_submit",
+      "duration_in_ms": 39,
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8080/realms/master/login-actions/authenticate?session_code=MThgHKaVaiH72tY3WES47dDQUgbvSZwRH25ahnG1hxs&execution=43e5fbf8-8b18-49c3-a086-7bf4e6a198ed&client_id=testing&tab_id=QRj5ydMeTrA&client_data=eyJydSI6Imh0dHA6Ly9sb2NhbGhvc3Q6NDAwMC9jYWxsYmFjayIsInJ0IjoiY29kZSIsInN0IjoiZll1bjdFRjgxTXFyVnRRMnZHcUREUSJ9",
+        "data": {
+          "username": "test",
+          "password": "***"
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "text/html,application/xhtml+xml",
+          "Accept-Language": "en-GB,en;q=0.8",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "keep-alive",
+          "X-Requested-With": "XMLHttpRequest",
+          "Host": "localhost:8080",
+          "Origin": "http://localhost:4000",
+          "Referer": "http://localhost:8080/realms/master/protocol/openid-connect/auth"
+        }
+      },
+      "response": {
+        "status": 302,
+        "headers": {
+          "Cache-Control": "no-store, must-revalidate, max-age=0",
+          "Set-Cookie": "KC_RESTART=;Version=1;Path=/realms/master/;Max-Age=0, KEYCLOAK_IDENTITY=eyJhbGciOiJIUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI1ZDJmMzBmYS1lODZkLTQ5MzUtOGU5MS0xYTU4MmU2NzkwYWIifQ.eyJleHAiOjE3ODM1NjIwOTMsImlhdCI6MTc4MzUyNjA5MywianRpIjoiNTM3MDQ5ZWQtMDZlOS1iMmYzLTg3NzktYTdmNmY4YjIzZTJmIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJzdWIiOiI4YWVmN2QwNi03ZTljLTRlNzItOWJmMC1iNmFjMWVmZWY5MWIiLCJ0eXAiOiJTZXJpYWxpemVkLUlEIiwic2lkIjoiOC1BX2toV0NVNDJXMFkzZTlWSXFNYXhwIiwic3RhdGVfY2hlY2tlciI6Imd4aUdjdExGM0tsU0ZFMjdGczY4ZF9ZZXN2bS1oLThPLXNRQ0dqaU91ekkifQ.GeTCIgsM-TgrCKfBvm5k5JsC9vuOouH50ijwOmOJLYIO9_066GZDJyiWGd_TnSMN1rmRpwmbOrq3tMYzRBeSEQ;Version=1;Path=/realms/master/;HttpOnly;SameSite=Lax, KEYCLOAK_SESSION=gQpyN77AivacxuqWpLA7ebPySkVRo9XdZsStOzWQAUw;Version=1;Path=/realms/master/;Max-Age=36000;SameSite=Lax",
+          "Content-Security-Policy": "frame-src 'self'; frame-ancestors 'self'; object-src 'none';",
+          "Location": "http://localhost:4000/callback?state=fYun7EF81MqrVtQ2vGqDDQ&session_state=8-A_khWCU42W0Y3e9VIqMaxp&iss=http%3A%2F%2Flocalhost%3A8080%2Frealms%2Fmaster&code=523a25dd-9092-2b02-ead4-e919692e5a08.8-A_khWCU42W0Y3e9VIqMaxp.215d11bb-f31f-4cd8-a325-d9fba220b65f",
+          "Referrer-Policy": "no-referrer",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Robots-Tag": "none",
+          "content-length": "0"
+        },
+        "location": "http://localhost:4000/callback?state=fYun7EF81MqrVtQ2vGqDDQ&session_state=8-A_khWCU42W0Y3e9VIqMaxp&iss=http%3A%2F%2Flocalhost%3A8080%2Frealms%2Fmaster&code=523a25dd-9092-2b02-ead4-e919692e5a08.8-A_khWCU42W0Y3e9VIqMaxp.215d11bb-f31f-4cd8-a325-d9fba220b65f"
+      }
+    },
+    {
+      "step": "code_received",
+      "redirect_to": "http://localhost:4000/callback?state=fYun7EF81MqrVtQ2vGqDDQ&session_state=8-A_khWCU42W0Y3e9VIqMaxp&iss=http%3A%2F%2Flocalhost%3A8080%2Frealms%2Fmaster&code=523a25dd-9092-2b02-ead4-e919692e5a08.8-A_khWCU42W0Y3e9VIqMaxp.215d11bb-f31f-4cd8-a325-d9fba220b65f",
+      "code_present": true
+    },
+    {
+      "step": "token_exchange",
+      "duration_in_ms": 53,
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8080/realms/master/protocol/openid-connect/token",
+        "data": {
+          "grant_type": "authorization_code",
+          "client_id": "testing",
+          "redirect_uri": "http://localhost:4000/callback",
+          "code_verifier_sent": true
+        },
+        "headers": {
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Cache-Control": "no-store",
+          "Pragma": "no-cache",
+          "content-length": "3091",
+          "connection": "close",
+          "Content-Type": "application/json",
+          "Referrer-Policy": "no-referrer",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "SAMEORIGIN",
+          "X-Robots-Tag": "none"
+        },
+        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODM1MjYxNTMsImlhdCI6MTc4MzUyNjA5MywiYXV0aF90aW1lIjoxNzgzNTI2MDkzLCJqdGkiOiJvbnJ0YWM6NThkMWViMTktYWNlMS02MTk3LWJlYjUtZGRlNzc1MDJmNjdkIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6IjgtQV9raFdDVTQyVzBZM2U5VklxTWF4cCI"
       }
     },
     {
       "step": "stolen_refresh_attempt",
-      "duration_in_ms": 28,
+      "duration_in_ms": 15,
       "request": {
         "method": "POST",
         "url": "http://localhost:8080/realms/master/protocol/openid-connect/token",
@@ -27,9 +140,13 @@
           "client_id": "testing"
         },
         "headers": {
-          "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Firefox/15.0.1"
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+          "Accept": "*/*",
+          "Accept-Encoding": "gzip,deflate",
+          "Connection": "close",
+          "Host": "localhost:8080"
         },
-        "note": "New session with no original cookies, attacker using stolen refresh token"
+        "note": "New attacker session: replaying stolen token, no original cookies"
       },
       "response": {
         "status": 200,
@@ -37,6 +154,7 @@
           "Cache-Control": "no-store",
           "Pragma": "no-cache",
           "content-length": "3047",
+          "connection": "close",
           "Content-Type": "application/json",
           "Referrer-Policy": "no-referrer",
           "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -44,7 +162,7 @@
           "X-Frame-Options": "SAMEORIGIN",
           "X-Robots-Tag": "none"
         },
-        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODI4MjYyODIsImlhdCI6MTc4MjgyNjIyMiwiYXV0aF90aW1lIjoxNzgyODI2MTk1LCJqdGkiOiJvbnJ0cnQ6ZTAwYjU1ZTEtN2ZmYy0yZDc5LWVlOGItM2RhMDRiMTZhM2EzIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6IjZrOWlYUzZIcVpVeU50WFJQdVdwT0pIMyI"
+        "body_snippet": "{\"access_token\":\"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJoMU5XRnJFSzVUajRvam1QZnpwOC10cHdoZUhMVkJTaFhBMDI5eDlYTHFRIn0.eyJleHAiOjE3ODM1MjYxNTMsImlhdCI6MTc4MzUyNjA5MywiYXV0aF90aW1lIjoxNzgzNTI2MDkzLCJqdGkiOiJvbnJ0cnQ6YzIwNGZmMmUtZmFlMS0yMjg2LWJhODEtOGZkMDM5MmNkNjkxIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tYXN0ZXIiLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiOGFlZjdkMDYtN2U5Yy00ZTcyLTliZjAtYjZhYzFlZmVmOTFiIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoidGVzdGluZyIsInNpZCI6IjgtQV9raFdDVTQyVzBZM2U5VklxTWF4cCI"
       }
     }
   ],
@@ -52,6 +170,6 @@
     "result": "refresh_misuse_accepted",
     "status": 200,
     "issue": "stolen_refresh_token_accepted",
-    "reason": "AS issued new tokens using a stolen refresh token with correct client id"
+    "reason": "AS issued new tokens using a stolen refresh token, attack not detected"
   }
 }

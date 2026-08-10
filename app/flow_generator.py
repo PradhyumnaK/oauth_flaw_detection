@@ -37,10 +37,41 @@ CLIENT_ID="testing"
 REDIRECT_URI="http://localhost:4000/callback"
 TRACES_DIR="traces"
 
+#Fix: SHAP shows zero for features x19, 20, 21, 29
+#Header profiles like browser to simulate different client types
+HEADER_PROFILES = [
+    {
+        #Full browser profile (like Chrome and Firefox)
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip,deflate,br",
+        "Connection": "keep-alive",
+        "_is_browser": True,
+    },
+    {
+        #AJAX client: sends X-Requested-With (x32)
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en-GB,en;q=0.8",
+        "Accept-Encoding": "gzip,deflate",
+        "Connection": "keep-alive",
+        "_is_browser": True,
+        "X-Requested-With": "XMLHttpRequest",
+    },
+    {
+        #scripted headless client (lesser headers and no language preference)
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip,deflate",
+        "Connection": "close",
+        "_is_browser": False,
+    },
+]
+
 def b64url_no_padding(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 def pkce_pair():
+    """Generate a PKCE code_verifier and S256 code_challenge pair.
+    Returns (verifier, challenge) as base64url strings."""
     verifier=b64url_no_padding(secrets.token_bytes(32))
     digest=hashlib.sha256(verifier.encode("ascii")).digest()
     challenge=b64url_no_padding(digest)
@@ -74,6 +105,18 @@ def timed_request(session: requests.Session, method: str, url: str, ** kwargs) -
         "response": resp,
         "duration_in_ms": duration_in_ms,
     }
+
+def build_headers(user_agent: str) -> dict:
+    """Building a realistic request header set by combining a user agent with random browser
+    header profile. This is to simulate the variation between different client types
+    for signal fingerprinting."""
+    profile = random.choice(HEADER_PROFILES)
+    headers = {"User-Agent": user_agent}
+    #headers.update(random.choice(HEADER_PROFILES))
+    headers.update({k: v for k, v in profile.items() if not k.startswith("_")}) #to strip the flag
+    headers["_is_browser"] = profile["_is_browser"] #internal flag for callers
+    headers["Host"] = urlparse(KEYCLOAK_BASE).netloc #localhost:8080, for host header (x22)
+    return headers
 
 def build_normal_auth_request():
     """
@@ -127,6 +170,8 @@ class AllowSecureOnHTTP(http.cookiejar.DefaultCookiePolicy):
         return super().return_ok(cookie, request)
     
 def make_session() -> requests.Session:
+    """Create a requests.Session that correctly handles Keycloak
+    Secure cookies over plain HTTP localhost."""
     session = requests.Session()
     session.cookies.set_policy(AllowSecureOnHTTP())
     return session
@@ -142,7 +187,8 @@ def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=N
 
     #Choose a random user agent for every flow from the defined user agents
     user_agent = random.choice(USER_AGENTS)
-    default_headers = {"User-Agent": user_agent}
+    default_headers = build_headers(user_agent)
+    default_headers.pop("_is_browser", None) #Removeing internal flag before logging
 
     auth_endpoint, token_endpoint, auth_params, code_verifier = build_auth_fn()
 
@@ -255,9 +301,18 @@ def run_flow(scenario: str, build_auth_fn, run: int=1, mutate_token_request_fn=N
 
     #Step 2: Submit credentials (user confirms request) (browser -> AS)
     #Manual cookie header is not needed, session manages cookies automatically
-    login_headers = {
-        "User-Agent": user_agent,
-    }
+    login_headers = build_headers(user_agent)
+    is_browser = login_headers.pop("_is_browser", False)
+    if is_browser:
+        #Real browsers send Origin and Referer on form submission
+        login_headers["Origin"] = "http://localhost:4000"
+        login_headers["Referer"] = (
+            f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+        )
+    #For Cookie (x24)
+    login_headers["Cookie"] = "; ".join(
+        f"{c.name}={c.value}" for c in session.cookies
+    )
     login_rec = timed_request(
         session,
         "POST",
@@ -597,78 +652,151 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     scenario = scenario.lower()
 
     user_agent = random.choice(USER_AGENTS)
-    default_headers = {"User-Agent": user_agent}
+    default_headers = build_headers(user_agent)
+    default_headers.pop("_is_browser", None) #Removeing internal flag before logging
 
     #Scenario: stolen refresh token misuse
+    #Rewriting this case to show both sides, victim and attacker
     if scenario == "refresh_misuse_stolen":
-        #We only need token endpoint and the stolen token here
-        _, token_endpoint, _, _ = build_normal_auth_request()
-        
+        session = make_session()
+        auth_endpoint, token_endpoint, auth_params, code_verifier = build_normal_auth_request()
+
         trace = {
             "scenario": scenario,
             "run": run,
+            "chosen_scope": auth_params.get("scope"),
             "user_agent": user_agent,
             "steps": [],
             "outcome": {},
         }
+        #All four steps showing legitimate victim session
+        auth_rec = timed_request(session, "GET", auth_endpoint, params=auth_params,
+                                 headers=default_headers, allow_redirects=False)
+        auth_resp = auth_rec["response"]
 
-        if not STOLEN_REFRESH_TOKENS:
-            trace["outcome"] = {
-                "result": "no_stolen_token_available",
-                "issue": "stolen_token_pool_empty",
-                "reason": "No refresh tokens available, run refresh_misuse_rejected scenario first",
-            }
+        if auth_resp.status_code not in (200, 302):
+            trace["outcome"] = {"result": "auth_request_failed", "status": auth_resp.status_code}
             return save_trace(trace, run)
-        stolen_token = STOLEN_REFRESH_TOKENS[(run-1)%len(STOLEN_REFRESH_TOKENS)]
-
-        #Logging a synthetic context step to show where the token originated from
+    
+        if auth_resp.status_code == 302:
+            lp_rec = timed_request(session, "GET", auth_resp.headers.get("Location"),
+                                   headers=default_headers, allow_redirects=False)
+            form_html = lp_rec["response"].text
+            step1_duration = auth_rec["duration_in_ms"] + lp_rec["duration_in_ms"]
+            form_status = lp_rec["response"].status_code
+            form_headers = dict(lp_rec["response"].headers)
+        else:
+            form_html = auth_resp.text
+            step1_duration = auth_rec["duration_in_ms"]
+            form_status = auth_resp.status_code
+            form_headers = dict(auth_resp.headers)
+    
+        try:
+            login_action = get_login_action_url(form_html)
+        except RuntimeError as e:
+            trace["outcome"] = {"result": "no_login_form", "details": str(e)}
+            return save_trace(trace, run)
+    
         trace["steps"].append({
-            "step": "legitimate_session_context",
-            "duration_in_ms": 0,
-            "request": {"method": "N/A", "url": "(prior session)", "data": {}},
-            "response": {
-                "status": None,
-                "note": "Refresh token was originally issued to a legitimate client session"
-                        "and subsequently obtained by an attacker (e.g. via token leakage, XSS,"
-                        "or insecure storage)."
-            },
+            "step": "authorization_request",
+            "duration_in_ms": step1_duration,
+            "request": {"method": "GET", "url": auth_endpoint, "params": auth_params,
+                        "headers": default_headers},
+            "response": {"status": form_status, "headers": form_headers, "login_form_action": login_action},
+            "note": "Legitimate victim session",
         })
 
-        attacker_session = make_session()
+        login_headers = build_headers(user_agent)
+        is_browser = login_headers.pop("_is_browser", False)
+        if is_browser:
+            login_headers["Origin"] = "http://localhost:4000"
+            login_headers["Referer"] = f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+    
+        login_rec = timed_request(session, "POST", login_action,
+                                  data={"username": USERNAME, "password": PASSWORD},
+                                  headers=login_headers, allow_redirects=False)
+        login_resp = login_rec["response"]
+        redirect_back = login_resp.headers.get("Location", "")
 
-        refresh_data = {
-            "grant_type": "refresh_token",
-            "client_id": CLIENT_ID,
-            "refresh_token": stolen_token,
-        }
-        refresh_rec = timed_request(
-            attacker_session,
-            "POST",
-            token_endpoint,
-            data=refresh_data,
-            headers=default_headers,
-            allow_redirects=False,
-        )
+        trace["steps"].append({
+            "step": "login_submit",
+            "duration_in_ms": login_rec["duration_in_ms"],
+            "request": {"method": "POST", "url": login_action,
+                        "data": {"username": USERNAME, "password": "***"},
+                        "headers": login_headers},
+            "response": {"status": login_resp.status_code,
+                         "headers": dict(login_resp.headers),
+                         "location": redirect_back},
+        })
+
+        if not redirect_back.startswith(REDIRECT_URI):
+            trace["outcome"] = {"result": "login_failed_bad_redirect",
+                                "status": login_resp.status_code}
+            return save_trace(trace, run)
+    
+        try:
+            code = extract_code_from_location(redirect_back)
+        except RuntimeError as e:
+            trace["outcome"] = {"result": "no_code_in_redirect", "details": str(e)}
+            return save_trace(trace, run)
+    
+        trace["steps"].append({
+            "step": "code_received",
+            "redirect_to": redirect_back,
+            "code_present": True,
+        })
+
+        token_data = {"grant_type": "authorization_code", "client_id": CLIENT_ID,
+                      "code": code, "redirect_uri": REDIRECT_URI, "code_verifier": code_verifier}
+        token_rec = timed_request(session, "POST", token_endpoint, data=token_data,
+                                  headers=default_headers, allow_redirects=False)
+        token_resp = token_rec["response"]
+
+        trace["steps"].append({
+            "step": "token_exchange",
+            "duration_in_ms": token_rec["duration_in_ms"],
+            "request": {"method": "POST", "url": token_endpoint,
+                        "data": {"grant_type": "authorization_code","client_id": CLIENT_ID,
+                                 "redirect_uri": REDIRECT_URI,
+                                 "code_verifier_sent": bool(token_data.get("code_verifier"))},
+                        "headers": default_headers},
+            "response": {"status": token_resp.status_code,
+                         "headers": dict(token_resp.headers),
+                         "body_snippet": token_resp.text[:500]},
+        })
+
+        if token_resp.status_code != 200:
+            trace["outcome"] = {"result": "token_error", "status": token_resp.status_code}
+            return save_trace(trace, run)
+    
+        token_json = token_resp.json()
+        refresh_token = token_json.get("refresh_token")
+
+        if not refresh_token:
+            trace["outcome"] = {"result": "no_refresh_token"}
+            return save_trace(trace, run)
+    
+        #Storing for pool
+        STOLEN_REFRESH_TOKENS.append(refresh_token)
+
+        #Step 5: Attacker replays stolen token in a new session
+        attacker_session = make_session()
+        refresh_data = {"grant_type": "refresh_token", "client_id": CLIENT_ID,
+                        "refresh_token": refresh_token}
+        refresh_rec = timed_request(attacker_session, "POST", token_endpoint, data=refresh_data,
+                                    headers=default_headers, allow_redirects=False)
         refresh_resp = refresh_rec["response"]
 
         trace["steps"].append({
             "step": "stolen_refresh_attempt",
             "duration_in_ms": refresh_rec["duration_in_ms"],
-            "request": {
-                "method": "POST",
-                "url": token_endpoint,
-                "data": {
-                    "grant_type": "refresh_token",
-                    "client_id": CLIENT_ID,
-                },
-                "headers": default_headers,
-                "note": "New session with no original cookies, attacker using stolen refresh token",
-            },
-            "response": {
-                "status": refresh_resp.status_code,
-                "headers": dict(refresh_resp.headers),
-                "body_snippet": refresh_resp.text[:500],
-            },
+            "request": {"method": "POST", "url": token_endpoint,
+                        "data": {"grant_type": "refresh_token", "client_id": CLIENT_ID},
+                        "headers": default_headers,
+                        "note": "New attacker session: replaying stolen token, no original cookies"},
+            "response": {"status": refresh_resp.status_code,
+                         "headers": dict(refresh_resp.headers),
+                         "body_snippet": refresh_resp.text[:500]},
         })
 
         if refresh_resp.status_code == 200:
@@ -676,15 +804,14 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
                 "result": "refresh_misuse_accepted",
                 "status": 200,
                 "issue": "stolen_refresh_token_accepted",
-                "reason": "AS issued new tokens using a stolen refresh token with correct client id",
+                "reason": "AS issued new tokens using a stolen refresh token, attack not detected",
             }
-
         else:
             trace["outcome"] = {
                 "result": "stolen_token_rejected",
                 "status": refresh_resp.status_code,
                 "issue": "stolen_refresh_token_rejected",
-                "reason": f"AS rejected stolen refresh token: {refresh_resp.text[:200]}",
+                "reason": f"AS rejected stolen token: {refresh_resp.text[:200]}",
             }
         return save_trace(trace, run)
 
@@ -788,7 +915,17 @@ def run_refresh_misuse_flow(run: int = 1, scenario: str = "refresh_misuse") -> d
     })
 
     #Step 2:login submit
-    login_headers = {"User-Agent": user_agent}
+    login_headers = build_headers(user_agent)
+    is_browser = login_headers.pop("_is_browser", False)
+    if is_browser:
+        login_headers["Origin"] = "http://localhost:4000"
+        login_headers["Referer"] = (
+            f"{KEYCLOAK_BASE}/realms/{REALM}/protocol/openid-connect/auth"
+        )
+    #For Cookie (x24)
+    login_headers["Cookie"] = "; ".join(
+        f"{c.name}={c.value}" for c in session.cookies
+    )
     login_rec = timed_request(
         session,
         "POST",
@@ -980,12 +1117,12 @@ def main():
         print(f"Running normal flow: #{run}")
         run_normal_flow(run=run)
     
-    #Open redirect flow that Keycloak rejects
+    #Open redirect flow that Keycloak rejects (strict)
     for run in range(1, 156):
         print(f"Running strict open redirect flow: #{run}")
         run_open_redirect_flow(run=run, scenario = "redirect_flaw_strict")
     
-    #Open redirect flow that Keycloak accepts
+    #Open redirect flow that Keycloak accepts (misconfig with "*")
     for run in range(1, 156):
         print(f"Running misconfigured open redirect flow: #{run}")
         run_open_redirect_flow(run=run, scenario = "redirect_flaw_misconfig")
